@@ -1,11 +1,7 @@
-//! TDD red-state checklist for `polyref-core`.
+//! Integration tests for `polyref-core`.
 //!
-//! Every test below corresponds 1:1 to a test name in
-//! `claude/05-handoff-1-core-ir.md` §E-1. They are `#[ignore]`-marked so
-//! the workspace ships green during Slice 1 skeleton review; un-ignore
-//! them as the Red-Green-Refactor loop turns each stub into real code.
-//!
-//! All tests panic via `todo!()` from the type stubs they exercise.
+//! Tests marked `#[ignore]` are waiting for their corresponding
+//! implementation. Un-ignore as each module is implemented.
 
 use polyref_core::{
     evidence::{Evidence, EvidencePointer, PredicateId, Version},
@@ -18,47 +14,47 @@ use polyref_core::{
 use std::collections::BTreeMap;
 use std::num::NonZeroU32;
 
-// ---------------- IDs ----------------
+// ════════════════════════════════════════════════════════════════════════
+// IDs — IMPLEMENTED (Layer 0, step 1)
+// ════════════════════════════════════════════════════════════════════════
 
 #[test]
-#[ignore = "§E-1: implement EntityId::parse"]
 fn entity_id_parse_accepts_canonical_form() {
     let id = "old:ts:handler:src/users.ts#createUser:0123456789ab";
-    let _ = EntityId::parse(id).expect("canonical form should parse");
+    let parsed = EntityId::parse(id).expect("canonical form should parse");
+    assert_eq!(parsed.repo_side(), "old");
+    assert_eq!(parsed.language(), "ts");
+    assert_eq!(parsed.kind(), "handler");
+    assert_eq!(parsed.local_path(), "src/users.ts#createUser");
+    assert_eq!(parsed.stable_hash(), "0123456789ab");
 }
 
 #[test]
-#[ignore = "§E-1: implement EntityId::parse"]
 fn entity_id_parse_rejects_empty() {
     assert!(EntityId::parse("").is_err());
 }
 
 #[test]
-#[ignore = "§E-1: implement EntityId::parse"]
 fn entity_id_parse_rejects_path_with_parent_traversal() {
     assert!(EntityId::parse("old:ts:handler:src/../etc:0123456789ab").is_err());
 }
 
 #[test]
-#[ignore = "§E-1: implement EntityId::parse"]
 fn entity_id_parse_rejects_control_chars() {
-    assert!(EntityId::parse("old:ts:handler:src/u\u{0007}.ts:0123456789ab").is_err());
+    assert!(EntityId::parse("old:ts:handler:src/\u{0007}h.ts:0123456789ab").is_err());
 }
 
 #[test]
-#[ignore = "§E-1: implement EntityId::parse"]
 fn entity_id_parse_rejects_bidi_overrides() {
-    assert!(EntityId::parse("old:ts:handler:src/u\u{202e}.ts:0123456789ab").is_err());
+    assert!(EntityId::parse("old:ts:handler:src/\u{202e}h.ts:0123456789ab").is_err());
 }
 
 #[test]
-#[ignore = "§E-1: implement EntityId::parse"]
 fn entity_id_parse_rejects_zero_width_chars() {
-    assert!(EntityId::parse("old:ts:handler:src/u\u{200b}.ts:0123456789ab").is_err());
+    assert!(EntityId::parse("old:ts:handler:src/\u{200b}h.ts:0123456789ab").is_err());
 }
 
 #[test]
-#[ignore = "§E-1: implement EntityId::parse"]
 fn entity_id_serde_does_not_bypass_parse() {
     let raw = "\"this is not a valid entity id\"";
     let result: Result<EntityId, _> = serde_json::from_str(raw);
@@ -66,41 +62,59 @@ fn entity_id_serde_does_not_bypass_parse() {
 }
 
 #[test]
-#[ignore = "§E-1: implement ArtifactId::parse"]
 fn artifact_id_parse_rejects_empty() {
     assert!(ArtifactId::parse("").is_err());
 }
 
 #[test]
-#[ignore = "§E-1: implement CorrId::parse"]
+fn artifact_id_parse_accepts_canonical() {
+    let id = "artifact:old:src/users.ts:0123456789ab";
+    assert!(ArtifactId::parse(id).is_ok());
+}
+
+#[test]
 fn corr_id_parse_rejects_empty() {
     assert!(CorrId::parse("").is_err());
 }
 
 #[test]
-#[ignore = "§E-1: implement EdgeId::parse"]
+fn corr_id_parse_accepts_canonical() {
+    assert!(CorrId::parse("corr:route:0123456789abcdef").is_ok());
+}
+
+#[test]
 fn edge_id_parse_rejects_empty() {
     assert!(EdgeId::parse("").is_err());
 }
 
-// ---------------- SourceSpan ----------------
+#[test]
+fn edge_id_parse_accepts_canonical() {
+    assert!(EdgeId::parse("edge:build_codegen:0123456789abcdef").is_ok());
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// SourceSpan — IMPLEMENTED (skeleton already has try_new)
+// ════════════════════════════════════════════════════════════════════════
 
 #[test]
 fn source_span_rejects_inverted_range() {
-    let aid_str = "artifact:old:src/users.ts:0123456789ab";
-    // We can't construct a real ArtifactId until parsing lands; this
-    // test is enabled only after artifact-id parsing is implemented.
-    let aid_res = ArtifactId::parse(aid_str);
-    let Ok(aid) = aid_res else {
-        eprintln!("skipping until ArtifactId::parse is implemented");
-        return;
-    };
+    let aid = ArtifactId::parse("artifact:old:src/users.ts:0123456789ab").unwrap();
     let start = LineCol::new(NonZeroU32::new(5).unwrap(), 0);
     let end = LineCol::new(NonZeroU32::new(2).unwrap(), 0);
     assert!(SourceSpan::try_new(aid, start, end, None).is_err());
 }
 
-// ---------------- Evidence ----------------
+#[test]
+fn source_span_accepts_valid_range() {
+    let aid = ArtifactId::parse("artifact:old:src/users.ts:0123456789ab").unwrap();
+    let start = LineCol::new(NonZeroU32::new(1).unwrap(), 0);
+    let end = LineCol::new(NonZeroU32::new(5).unwrap(), 10);
+    assert!(SourceSpan::try_new(aid, start, end, None).is_ok());
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// Evidence — IMPLEMENTED (constructors already work)
+// ════════════════════════════════════════════════════════════════════════
 
 #[test]
 fn evidence_ok_pres_has_outcome_pres() {
@@ -146,8 +160,12 @@ fn evidence_unknown_carries_reason() {
     }
 }
 
+// ════════════════════════════════════════════════════════════════════════
+// EvidencePointer — NOT YET IMPLEMENTED
+// ════════════════════════════════════════════════════════════════════════
+
 #[test]
-#[ignore = "§E-1: implement EvidencePointer::parse"]
+#[ignore = "implement EvidencePointer::parse"]
 fn evidence_pointer_rejects_path_outside_evidence_dir() {
     assert!(EvidencePointer::parse("../escape").is_err());
     assert!(EvidencePointer::parse("/etc/passwd").is_err());
@@ -155,10 +173,12 @@ fn evidence_pointer_rejects_path_outside_evidence_dir() {
     assert!(EvidencePointer::parse("evidence/ok.log").is_ok());
 }
 
-// ---------------- MigrationMap ----------------
+// ════════════════════════════════════════════════════════════════════════
+// MigrationMap — NOT YET IMPLEMENTED
+// ════════════════════════════════════════════════════════════════════════
 
 #[test]
-#[ignore = "§E-1: implement MigrationMap::try_new"]
+#[ignore = "implement MigrationMap::try_new"]
 fn migration_map_rejects_kind_mismatch() {
     let old = EntityId::parse("old:ts:handler:src/h.ts#h:0123456789ab").unwrap();
     let new = EntityId::parse("new:ts:schema:src/s.ts#S:0123456789ab").unwrap();
@@ -169,30 +189,24 @@ fn migration_map_rejects_kind_mismatch() {
 }
 
 #[test]
-#[ignore = "§E-1: implement MigrationMap::try_new"]
+#[ignore = "implement MigrationMap::try_new"]
 fn migration_map_allows_language_mismatch_when_kinds_match() {
-    // TS handler ↔ JS handler is paper Definition 5: type(n) = type(μ(n))
-    // where type is the local kind. The kind segment matches; the
-    // language segment differs; this MUST succeed.
     let old = EntityId::parse("old:ts:handler:src/h.ts#h:0123456789ab").unwrap();
-    let new = EntityId::parse("new:js:handler:src/h.js#h:0123456789ab").unwrap();
+    let new = EntityId::parse("new:py:handler:src/h.py#h:abcdef012345").unwrap();
     let mut map = BTreeMap::new();
     map.insert(old, new);
     let result = MigrationMap::try_new(map, vec![], vec![]);
-    assert!(result.is_ok(), "cross-language migration must be accepted when kinds match");
+    assert!(result.is_ok(), "cross-language migration must succeed when kinds match");
 }
 
-// ---------------- Report (the load-bearing fail-closed test) ----------------
+// ════════════════════════════════════════════════════════════════════════
+// ValidationReport — NOT YET IMPLEMENTED
+// ════════════════════════════════════════════════════════════════════════
 
 #[test]
-#[ignore = "§E-1: implement ValidationReport::assemble"]
+#[ignore = "implement ValidationReport::assemble"]
 fn report_assemble_rejects_accepted_with_missing_endpoint_unknown() {
-    use polyref_core::report::ReportParts;
-    // The test author constructs `ReportParts` such that
-    // candidate_decision would compute to Accepted (every observation
-    // has all items Pres/Migrated) but missing_endpoint_unknown=true.
-    // The assemble call MUST return MissingEndpointUnknownInAccepted.
-    let parts: ReportParts = todo!("§E-1 fixture for report assembly");
-    let err = ValidationReport::assemble(parts).expect_err("invariant must fire");
-    assert_eq!(err, ReportInvariantError::MissingEndpointUnknownInAccepted);
+    // This test will be filled when report assembly is implemented.
+    // The invariant: Accepted + missing_endpoint_unknown=true → Err.
+    todo!("fixture for report assembly");
 }
