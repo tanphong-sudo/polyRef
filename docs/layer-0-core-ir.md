@@ -1,6 +1,6 @@
-# 05 — Slice 1: Core IR + Schemas + Plugin SPI
+# 05 — Layer 0: Core IR + Schemas + Plugin SPI
 
-Slice 1 implements Layer 0 of `build-plan.md`: schemas, core types, plugin SPI envelopes, test layout, CI/tooling. Two crates only — `polyref-core` and `polyref-checker-spi` — and 28 JSON Schemas. No runtime I/O in either crate.
+Layer 0 ships the type substrate every later layer imports unchanged: schemas, core types, plugin SPI envelopes, test layout, CI/tooling. Two crates only — `polyref-core` and `polyref-checker-spi` — and 28 JSON Schemas. No runtime I/O in either crate.
 
 ## Files
 
@@ -140,11 +140,11 @@ pub enum ReportInvariantError {
 }
 ```
 
-`assemble` is the only constructor. It rejects assembly when the fail-closed invariant would be violated, when an evidence pointer escaped the `evidence/` subtree, when a referenced id has invalid syntax, or when an `Accepted` observation contains a non-accepting item. Cross-graph reference resolution (verifying an `EntityId` exists in a `Repository`) is not in this slice; it lives in `polyref-graph`.
+`assemble` is the only constructor. It rejects assembly when the fail-closed invariant would be violated, when an evidence pointer escaped the `evidence/` subtree, when a referenced id has invalid syntax, or when an `Accepted` observation contains a non-accepting item. Cross-graph reference resolution (verifying an `EntityId` exists in a `Repository`) is not in this layer; it lives in `polyref-graph`.
 
 ### Plugin SPI envelopes
 
-`polyref-checker-spi` exposes the wire types only. The plugin process pool and dispatcher are Slice 3.
+`polyref-checker-spi` exposes the wire types only. The plugin process pool and dispatcher are Layer 3.
 
 ```rust
 pub struct ExtractRequest  { artifact_path: SafePath, content_hash: String,
@@ -180,7 +180,7 @@ pub type   CheckResult     = Evidence;
 
 ## TDD red-state checklist
 
-The implementer turns each `#[ignore]`-marked test green by implementing the corresponding parser, builder, or invariant. The list below is exhaustive for Slice 1.
+The implementer turns each `#[ignore]`-marked test green by implementing the corresponding parser, builder, or invariant. The list below is exhaustive for Layer 0.
 
 **Schemas**
 - `schemas_validate_under_draft_2020_12`
@@ -298,4 +298,4 @@ The implementer turns each `#[ignore]`-marked test green by implementing the cor
 - **F-7** Final EvidencePointer regex: skeleton ships `^evidence/[A-Za-z0-9_./-]{1,512}$`.
 - **F-8** Generated bindings strategy: hand-written + drift-check (current default) vs codegen.
 
-Soft blockers (close before slice review): MSRV (currently 1.79), final license text (currently Apache-2.0 placeholder), `trybuild` budget, proptest case budget, `Visibility` immutability (currently immutable per ADR-010).
+Soft blockers (close before layer review): MSRV (currently 1.79), final license text (currently Apache-2.0 placeholder), `trybuild` budget, proptest case budget, `Visibility` immutability (currently immutable per ADR-010).

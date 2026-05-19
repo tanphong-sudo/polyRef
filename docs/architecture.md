@@ -6,13 +6,13 @@
 crates/                                       (in-process Rust)
 ├── polyref-core           types, ids, status, evidence, observation, report — no I/O
 ├── polyref-checker-spi    JSON-RPC envelope + extractor / kind-checker SPI types
-├── polyref-graph          Repository graph, GraphStore, MigrationMap, ObservationRegistry      [Slice 2+]
-├── polyref-loader         Reproducible checkout + sandboxed apply(R, ρ)                         [Slice 2+]
-├── polyref-frontier       ∂ρ(o) least-closure                                                   [Slice 5+]
-├── polyref-engine         Algorithm A1 + A2                                                     [Slice 6+]
-├── polyref-rewriter       μ(o) for api / build / workflow / test                                [Slice 7+]
-├── polyref-report         JSON + Markdown emitters                                              [Slice 7+]
-└── polyref-cli            polyref validate / replay / explain / prefetch                        [Slice 8+]
+├── polyref-graph          Repository graph, GraphStore, MigrationMap, ObservationRegistry      [Layer 2+]
+├── polyref-loader         Reproducible checkout + sandboxed apply(R, ρ)                         [Layer 2+]
+├── polyref-frontier       ∂ρ(o) least-closure                                                   [Layer 5+]
+├── polyref-engine         Algorithm A1 + A2                                                     [Layer 6+]
+├── polyref-rewriter       μ(o) for api / build / workflow / test                                [Layer 7+]
+├── polyref-report         JSON + Markdown emitters                                              [Layer 7+]
+└── polyref-cli            polyref validate / replay / explain / prefetch                        [Layer 8+]
 
 plugins/                                      (subprocess; JSON-RPC over stdio)
 ├── extractor-{typescript, python, openapi, jsonschema, sql, yaml-actions,
@@ -20,8 +20,8 @@ plugins/                                      (subprocess; JSON-RPC over stdio)
 └── checker-{route, schema, build-codegen, workflow, query-table, event,
             generated-client, test-oracle, serialization, configuration}
 
-coq/    Abstract preservation theorems (Slice 10)
-eval/   Empirical harness — subjects, tasks, baselines, analysis (Slice 11)
+coq/    Abstract preservation theorems (Layer 10)
+eval/   Empirical harness — subjects, tasks, baselines, analysis (Layer 11)
 docs/   Project documentation
 ```
 
@@ -127,8 +127,8 @@ The sandbox stack (ADR-009):
 | Extractor incompleteness on reflective frameworks | Fail-closed → `Unknown`; admit dynamic traces under ADR-004 | `Unknown` rate > 30 % on a target stack |
 | Build-system modeling for monorepos | Bounded-fragment scope; opaque cache → `Unknown` | A target subject has > 20 % `Unknown` from build cause |
 | LLM nondeterminism in baseline runs | Pin model id, temperature 0, retry budget recorded | Baseline FA-rate variance > 0.05 |
-| 43-min budget overrun | Memoization keyed by content + versions; parallel sweep | Median > 30 min after Slice 14 |
+| 43-min budget overrun | Memoization keyed by content + versions; parallel sweep | Median > 30 min after Layer 12 |
 | Plugin crash storm | Bounded plugin pool; supervised restart with backoff | > 1 % plugin failures per task |
 | Coq drift vs implementation | Implementation tests mirror named theorems | Any Coq theorem renamed without paired test rename |
 | Sandbox escape via untrusted candidate | Defense in depth; security review before v1 | CVE on chosen sandbox; pen-test finding |
-| Subject curation pipeline broken | Inclusion criteria as code; CI rejects subjects missing fields | < 30 reproducible subjects after Slice 16 |
+| Subject curation pipeline broken | Inclusion criteria as code; CI rejects subjects missing fields | < 30 reproducible subjects after Layer 12 |

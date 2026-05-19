@@ -72,7 +72,7 @@ bash scripts/verify-schemas.sh
 1. PR title: concise, under 70 characters
 2. PR body must include:
    - Summary of changes
-   - Which layer/slice this belongs to
+   - Which layer this belongs to
    - What was tested
 3. All CI checks must pass
 4. At least one approval required

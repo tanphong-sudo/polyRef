@@ -8,7 +8,7 @@ Adding a new enum variant or a new required field is a **minor** version
 bump. Removing a variant or making an optional field required is a
 **major** version bump and breaks plugin compatibility.
 
-## 0.1.0 — Slice 1 skeleton
+## 0.1.0 — Layer 0 skeleton
 
 Initial schema set:
 
@@ -29,8 +29,8 @@ Initial schema set:
 - `checker-spi/{describe, check}.json`
 - `extractor-spi/extract.json`
 - `report.json`
-- `audit-event.json` *(placeholder; expand in Slice 2)*
-- `manifest.json` *(placeholder; expand in Slice 2)*
+- `audit-event.json` *(placeholder; expand in Layer 1)*
+- `manifest.json` *(placeholder; expand in Layer 1)*
 
 Reason enum order is **lexicographic ascending of variant names** per
 hard blocker F-2 in `../claude/05-handoff-1-core-ir.md`.

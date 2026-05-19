@@ -28,7 +28,7 @@ crates/polyref-checker-spi/src/{envelope, limits, error, extractor, checker}.rs
 
 Acceptance: `cargo build --workspace` clean; `cargo test --workspace` green; `bash scripts/verify-schemas.sh` reports 28 schemas validate against Draft 2020-12.
 
-Status: skeleton landed. See [`slice-1-core-ir.md`](slice-1-core-ir.md) for the type contracts and remaining red-state tests.
+Status: skeleton landed. See [`layer-0-core-ir.md`](layer-0-core-ir.md) for the type contracts and remaining red-state tests.
 
 ## Layer 1 — Persistence
 
