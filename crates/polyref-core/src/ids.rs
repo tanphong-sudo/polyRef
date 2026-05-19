@@ -314,7 +314,7 @@ impl ArtifactId {
 
         let mut parts = stripped.splitn(3, ':');
         let repo_side = parts.next().ok_or(IdParseError::Syntax("missing repo_side"))?;
-        let rest = parts.next().ok_or(IdParseError::Syntax("missing path"))?;
+        let _rest = parts.next().ok_or(IdParseError::Syntax("missing path"))?;
 
         // If there's a third part from splitn(3), combine with rest
         // Actually we need: repo_side, then path (may contain colons? no — paths use / not :),
@@ -505,6 +505,7 @@ impl<'de> Deserialize<'de> for EdgeId {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
 
     // ── EntityId ──

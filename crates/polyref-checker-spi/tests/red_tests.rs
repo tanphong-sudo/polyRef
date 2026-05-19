@@ -1,5 +1,7 @@
 //! Integration tests for `polyref-checker-spi`.
 
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 use polyref_checker_spi::limits::SafePath;
 
 #[test]

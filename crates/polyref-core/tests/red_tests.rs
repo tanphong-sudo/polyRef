@@ -3,6 +3,8 @@
 //! Tests marked `#[ignore]` are waiting for their corresponding
 //! implementation. Un-ignore as each module is implemented.
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use polyref_core::{
     evidence::{Evidence, EvidencePointer, PredicateId, Version},
     ids::{ArtifactId, CorrId, EdgeId, EntityId},

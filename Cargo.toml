@@ -20,9 +20,6 @@ unused_must_use = "deny"
 
 [workspace.lints.clippy]
 all = { level = "deny", priority = -1 }
-# Pedantic is enabled at warn level once the Slice 1 stubs become real
-# code. For the skeleton we keep it permissive so the workspace ships
-# green without spurious warnings on todo!() bodies.
 pedantic = { level = "allow", priority = -1 }
 unwrap_used = "warn"
 expect_used = "warn"
