@@ -28,12 +28,43 @@ pub enum EvidencePointerError {
 }
 
 impl EvidencePointer {
-    /// Parse a pointer string. Slice 1 stub.
-    pub fn parse(_input: &str) -> Result<Self, EvidencePointerError> {
-        todo!(
-            "§E-1 evidence_pointer_rejects_*; \
-             enforce ^evidence/[A-Za-z0-9_./-]{{1,512}}$ per F-7"
-        )
+    /// Maximum length of the path portion after `evidence/` (bytes).
+    const MAX_SUFFIX_LEN: usize = 512;
+
+    /// Parse a pointer string. Must match `^evidence/[A-Za-z0-9_./-]{1,512}$`.
+    /// Rejects parent traversal, absolute paths, NUL, control chars.
+    pub fn parse(input: &str) -> Result<Self, EvidencePointerError> {
+        // Must start with "evidence/"
+        let suffix = input
+            .strip_prefix("evidence/")
+            .ok_or(EvidencePointerError::Invalid("must start with 'evidence/'"))?;
+
+        // Suffix must be 1–512 bytes
+        if suffix.is_empty() {
+            return Err(EvidencePointerError::Invalid("empty path after 'evidence/'"));
+        }
+        if suffix.len() > Self::MAX_SUFFIX_LEN {
+            return Err(EvidencePointerError::Invalid("path too long (max 512 chars after 'evidence/')"));
+        }
+
+        // Only allowed chars: A-Z a-z 0-9 _ . / -
+        if !suffix.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'.' || b == b'/' || b == b'-') {
+            return Err(EvidencePointerError::Invalid("contains disallowed character"));
+        }
+
+        // No parent traversal
+        for segment in suffix.split('/') {
+            if segment == ".." {
+                return Err(EvidencePointerError::Invalid("contains parent-traversal '..'"));
+            }
+        }
+
+        // No empty segments (double slash)
+        if suffix.contains("//") {
+            return Err(EvidencePointerError::Invalid("contains empty path segment '//'"));
+        }
+
+        Ok(Self(input.to_owned()))
     }
 
     /// Read-only view.

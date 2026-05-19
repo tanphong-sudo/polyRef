@@ -73,15 +73,33 @@ pub struct MigrationMap {
 impl MigrationMap {
     /// Build a `MigrationMap` and enforce the type-respecting predicate
     /// from paper Definition 5 (kind-segment match only).
+    ///
+    /// Returns `Err` if any rewrite has mismatched `kind` segments.
+    /// Cross-language migrations (different `language` segments) are
+    /// explicitly allowed when kinds match.
     pub fn try_new(
-        _entity_rewrites: BTreeMap<EntityId, EntityId>,
-        _observation_part_rewrites: Vec<ObsPartRewrite>,
-        _conflicts: Vec<MigrationConflict>,
+        entity_rewrites: BTreeMap<EntityId, EntityId>,
+        observation_part_rewrites: Vec<ObsPartRewrite>,
+        conflicts: Vec<MigrationConflict>,
     ) -> Result<Self, MigrationMapError> {
-        todo!(
-            "§E-1 migration_map_rejects_kind_mismatch + \
-             migration_map_allows_language_mismatch_when_kinds_match"
-        )
+        // Check type-respecting: kind segment must match for every rewrite.
+        for (old, new) in &entity_rewrites {
+            if old.kind() != new.kind() {
+                return Err(MigrationMapError::KindMismatch {
+                    old: old.as_str().to_owned(),
+                    new: new.as_str().to_owned(),
+                });
+            }
+        }
+
+        let type_respecting = conflicts.is_empty();
+
+        Ok(Self {
+            entity_rewrites,
+            observation_part_rewrites,
+            conflicts,
+            type_respecting,
+        })
     }
 
     /// Lookup.
@@ -95,7 +113,8 @@ impl MigrationMap {
         self.entity_rewrites.iter()
     }
 
-    /// Whether the map satisfies the type-respecting predicate.
+    /// Whether the map satisfies the type-respecting predicate
+    /// (no conflicts and all kind segments match).
     #[must_use]
     pub fn is_type_respecting(&self) -> bool {
         self.type_respecting

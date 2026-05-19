@@ -80,13 +80,55 @@ pub enum SafePathError {
     Syntax(&'static str),
 }
 
+/// Hard cap on safe-path length (bytes).
+const SAFE_PATH_MAX_LEN: usize = 4 * 1024;
+
 impl SafePath {
-    /// Parse a string as a `SafePath`. Slice 1 stub.
-    pub fn parse(_input: &str) -> Result<Self, SafePathError> {
-        todo!(
-            "§F: enforce relative POSIX path; reject absolute, traversal, NUL, \
-             control + bidi + zero-width codepoints"
-        )
+    /// Parse a string as a `SafePath`. Rejects absolute paths, parent
+    /// traversal, NUL, control chars, bidi overrides, zero-width chars.
+    /// Always relative to a sandbox/run root.
+    pub fn parse(input: &str) -> Result<Self, SafePathError> {
+        if input.is_empty() {
+            return Err(SafePathError::Empty);
+        }
+        if input.len() > SAFE_PATH_MAX_LEN {
+            return Err(SafePathError::TooLong);
+        }
+        if input.starts_with('/') {
+            return Err(SafePathError::Absolute);
+        }
+
+        for ch in input.chars() {
+            if ch == '\0' {
+                return Err(SafePathError::Nul);
+            }
+            // C0/C1 control
+            if ch <= '\u{001F}' || ('\u{007F}'..='\u{009F}').contains(&ch) {
+                return Err(SafePathError::Disallowed);
+            }
+            // Bidi overrides
+            if ('\u{202A}'..='\u{202E}').contains(&ch)
+                || ('\u{2066}'..='\u{2069}').contains(&ch)
+            {
+                return Err(SafePathError::Disallowed);
+            }
+            // Zero-width
+            if ('\u{200B}'..='\u{200D}').contains(&ch)
+                || ch == '\u{FEFF}'
+                || ch == '\u{2060}'
+            {
+                return Err(SafePathError::Disallowed);
+            }
+        }
+
+        // Parent traversal
+        for segment in input.split('/') {
+            if segment == ".." {
+                return Err(SafePathError::ParentTraversal);
+            }
+        }
+
+        Ok(Self(input.to_owned()))
     }
 
     /// Read-only view.

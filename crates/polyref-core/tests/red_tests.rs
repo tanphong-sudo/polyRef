@@ -161,11 +161,10 @@ fn evidence_unknown_carries_reason() {
 }
 
 // ════════════════════════════════════════════════════════════════════════
-// EvidencePointer — NOT YET IMPLEMENTED
+// EvidencePointer — IMPLEMENTED
 // ════════════════════════════════════════════════════════════════════════
 
 #[test]
-#[ignore = "implement EvidencePointer::parse"]
 fn evidence_pointer_rejects_path_outside_evidence_dir() {
     assert!(EvidencePointer::parse("../escape").is_err());
     assert!(EvidencePointer::parse("/etc/passwd").is_err());
@@ -173,12 +172,21 @@ fn evidence_pointer_rejects_path_outside_evidence_dir() {
     assert!(EvidencePointer::parse("evidence/ok.log").is_ok());
 }
 
+#[test]
+fn evidence_pointer_rejects_parent_traversal() {
+    assert!(EvidencePointer::parse("evidence/../escape.log").is_err());
+}
+
+#[test]
+fn evidence_pointer_rejects_empty_suffix() {
+    assert!(EvidencePointer::parse("evidence/").is_err());
+}
+
 // ════════════════════════════════════════════════════════════════════════
-// MigrationMap — NOT YET IMPLEMENTED
+// MigrationMap — IMPLEMENTED
 // ════════════════════════════════════════════════════════════════════════
 
 #[test]
-#[ignore = "implement MigrationMap::try_new"]
 fn migration_map_rejects_kind_mismatch() {
     let old = EntityId::parse("old:ts:handler:src/h.ts#h:0123456789ab").unwrap();
     let new = EntityId::parse("new:ts:schema:src/s.ts#S:0123456789ab").unwrap();
@@ -189,7 +197,6 @@ fn migration_map_rejects_kind_mismatch() {
 }
 
 #[test]
-#[ignore = "implement MigrationMap::try_new"]
 fn migration_map_allows_language_mismatch_when_kinds_match() {
     let old = EntityId::parse("old:ts:handler:src/h.ts#h:0123456789ab").unwrap();
     let new = EntityId::parse("new:py:handler:src/h.py#h:abcdef012345").unwrap();
@@ -199,14 +206,134 @@ fn migration_map_allows_language_mismatch_when_kinds_match() {
     assert!(result.is_ok(), "cross-language migration must succeed when kinds match");
 }
 
+#[test]
+fn migration_map_iter_is_deterministic() {
+    let a = EntityId::parse("old:ts:handler:a:0123456789ab").unwrap();
+    let b = EntityId::parse("old:ts:handler:b:0123456789ab").unwrap();
+    let a2 = EntityId::parse("new:ts:handler:a2:abcdef012345").unwrap();
+    let b2 = EntityId::parse("new:ts:handler:b2:abcdef012345").unwrap();
+    let mut map = BTreeMap::new();
+    map.insert(b.clone(), b2.clone());
+    map.insert(a.clone(), a2.clone());
+    let mm = MigrationMap::try_new(map, vec![], vec![]).unwrap();
+    let keys: Vec<&str> = mm.iter().map(|(k, _)| k.as_str()).collect();
+    // BTreeMap guarantees sorted order
+    assert_eq!(keys[0], a.as_str());
+    assert_eq!(keys[1], b.as_str());
+}
+
 // ════════════════════════════════════════════════════════════════════════
-// ValidationReport — NOT YET IMPLEMENTED
+// ValidationReport — IMPLEMENTED
 // ════════════════════════════════════════════════════════════════════════
 
 #[test]
-#[ignore = "implement ValidationReport::assemble"]
 fn report_assemble_rejects_accepted_with_missing_endpoint_unknown() {
-    // This test will be filled when report assembly is implemented.
-    // The invariant: Accepted + missing_endpoint_unknown=true → Err.
-    todo!("fixture for report assembly");
+    use polyref_core::report::{
+        CandidateDecision, ObservationDecision, ObservationRow, ReportAuditPointers,
+        ReportCandidate, ReportConfigs, ReportParts, ReportRepoRef, ReportRepos,
+    };
+    use polyref_core::observation::Visibility;
+
+    // Build a ReportParts where all observations are Accepted (so
+    // candidate_decision would compute to Accepted) but
+    // missing_endpoint_unknown = true.
+    let parts = ReportParts {
+        report_id: "test-report-1".to_owned(),
+        repos: ReportRepos {
+            old: ReportRepoRef {
+                repo_id: "repo-old".to_owned(),
+                commit: "a".repeat(40),
+            },
+            new: ReportRepoRef {
+                repo_id: "repo-new".to_owned(),
+                commit: "b".repeat(40),
+            },
+        },
+        candidate: ReportCandidate {
+            candidate_id: "cand-1".to_owned(),
+            source: "manual".to_owned(),
+            patch_hash: "c".repeat(64),
+        },
+        configs: ReportConfigs {
+            extractor_versions: std::collections::BTreeMap::new(),
+            checker_versions: std::collections::BTreeMap::new(),
+        },
+        observations: vec![ObservationRow {
+            observation_id: "obs-1".to_owned(),
+            obs_kind: "api_call".to_owned(),
+            visibility: Visibility::Visible,
+            frontier_size: 1,
+            items: vec![Evidence::ok_pres(
+                PredicateId::new("route.compat-v1"),
+                vec![],
+                vec![],
+                Version::new("1.0.0"),
+                Version::new("1.0.0"),
+            )],
+            status: ObservationDecision::Accepted,
+        }],
+        missing_endpoint_unknown: true, // ← the violation
+        audit_pointers: ReportAuditPointers {
+            audit_ndjson: "evidence/audit.ndjson".to_owned(),
+            manifest_json: "evidence/manifest.json".to_owned(),
+        },
+    };
+
+    let err = ValidationReport::assemble(parts).expect_err("invariant must fire");
+    assert_eq!(err, ReportInvariantError::MissingEndpointUnknownInAccepted);
+}
+
+#[test]
+fn report_assemble_accepts_valid_report() {
+    use polyref_core::report::{
+        CandidateDecision, ObservationDecision, ObservationRow, ReportAuditPointers,
+        ReportCandidate, ReportConfigs, ReportParts, ReportRepoRef, ReportRepos,
+    };
+    use polyref_core::observation::Visibility;
+
+    let parts = ReportParts {
+        report_id: "test-report-2".to_owned(),
+        repos: ReportRepos {
+            old: ReportRepoRef {
+                repo_id: "repo-old".to_owned(),
+                commit: "a".repeat(40),
+            },
+            new: ReportRepoRef {
+                repo_id: "repo-new".to_owned(),
+                commit: "b".repeat(40),
+            },
+        },
+        candidate: ReportCandidate {
+            candidate_id: "cand-2".to_owned(),
+            source: "ide".to_owned(),
+            patch_hash: "d".repeat(64),
+        },
+        configs: ReportConfigs {
+            extractor_versions: std::collections::BTreeMap::new(),
+            checker_versions: std::collections::BTreeMap::new(),
+        },
+        observations: vec![ObservationRow {
+            observation_id: "obs-1".to_owned(),
+            obs_kind: "api_call".to_owned(),
+            visibility: Visibility::Visible,
+            frontier_size: 1,
+            items: vec![Evidence::ok_migrated(
+                PredicateId::new("route.migrate-v1"),
+                vec![],
+                vec![],
+                Version::new("1.0.0"),
+                Version::new("1.0.0"),
+            )],
+            status: ObservationDecision::Accepted,
+        }],
+        missing_endpoint_unknown: false,
+        audit_pointers: ReportAuditPointers {
+            audit_ndjson: "evidence/audit.ndjson".to_owned(),
+            manifest_json: "evidence/manifest.json".to_owned(),
+        },
+    };
+
+    let report = ValidationReport::assemble(parts).expect("should assemble");
+    assert_eq!(report.candidate_decision(), CandidateDecision::Accepted);
+    assert!(!report.missing_endpoint_unknown());
 }

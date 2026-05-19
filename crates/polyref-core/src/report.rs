@@ -173,14 +173,56 @@ impl ValidationReport {
     /// Assemble a validation report from `ReportParts`. Computes
     /// `candidate_decision` as the meet over visible observations, and
     /// rejects assembly if the fail-closed invariant would be violated.
-    ///
-    /// Slice 1 stub: returns `todo!()`. Implement during §E-1
-    /// `report_assemble_*` test pass.
-    pub fn assemble(_parts: ReportParts) -> Result<Self, ReportInvariantError> {
-        todo!(
-            "§E-1 report_assemble_rejects_accepted_with_missing_endpoint_unknown; \
-             compute meet rule; reject EvidencePointerOutsideEvidenceDir"
-        )
+    pub fn assemble(parts: ReportParts) -> Result<Self, ReportInvariantError> {
+        // Compute candidate_decision as the meet over visible observations.
+        let mut has_broken = false;
+        let mut has_unknown = false;
+
+        for obs in &parts.observations {
+            if obs.visibility == Visibility::Visible {
+                match obs.status {
+                    ObservationDecision::Accepted => {}
+                    ObservationDecision::Broken => has_broken = true,
+                    ObservationDecision::Unknown => has_unknown = true,
+                }
+            }
+        }
+
+        let candidate_decision = if has_broken {
+            CandidateDecision::Broken
+        } else if has_unknown {
+            CandidateDecision::Unknown
+        } else {
+            CandidateDecision::Accepted
+        };
+
+        // FAIL-CLOSED INVARIANT: Accepted + missing_endpoint_unknown = violation.
+        if candidate_decision == CandidateDecision::Accepted && parts.missing_endpoint_unknown {
+            return Err(ReportInvariantError::MissingEndpointUnknownInAccepted);
+        }
+
+        // Check that no Accepted observation contains a non-accepting item.
+        for obs in &parts.observations {
+            if obs.status == ObservationDecision::Accepted {
+                for item in &obs.items {
+                    if !item.outcome().is_accepting() {
+                        return Err(ReportInvariantError::NonAcceptingItemInAcceptedObservation);
+                    }
+                }
+            }
+        }
+
+        Ok(Self {
+            schema_version: Self::SCHEMA_VERSION.to_owned(),
+            report_id: parts.report_id,
+            candidate: parts.candidate,
+            repos: parts.repos,
+            configs: parts.configs,
+            observations: parts.observations,
+            candidate_decision,
+            missing_endpoint_unknown: parts.missing_endpoint_unknown,
+            audit_pointers: parts.audit_pointers,
+        })
     }
 
     /// Computed candidate decision.
