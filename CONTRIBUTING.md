@@ -55,17 +55,16 @@ ci: add MSRV matrix to CI workflow
 All four must pass:
 
 ```bash
-cd polyref
 cargo fmt --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 cargo deny check
 ```
 
-Schema validation (from repo root):
+Schema validation:
 
 ```bash
-bash polyref/scripts/verify-schemas.sh
+bash scripts/verify-schemas.sh
 ```
 
 ## Pull request process

@@ -23,7 +23,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install jsonschema
-      - run: bash polyref/scripts/verify-schemas.sh
+      - run: bash scripts/verify-schemas.sh
 
   # ─────────────────────────────────────────────────────────────────────
   # 2. Rust build + test + lint
@@ -35,9 +35,6 @@ jobs:
       fail-fast: false
       matrix:
         toolchain: [stable, "1.79"]  # MSRV + latest stable
-    defaults:
-      run:
-        working-directory: polyref
     steps:
       - uses: actions/checkout@v4
 
@@ -76,14 +73,9 @@ jobs:
   deny:
     name: cargo-deny
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: polyref
     steps:
       - uses: actions/checkout@v4
       - uses: EmbarkStudios/cargo-deny-action@v2
-        with:
-          manifest-path: polyref/Cargo.toml
 
   # ─────────────────────────────────────────────────────────────────────
   # 4. Schema ↔ Rust drift check
@@ -92,9 +84,6 @@ jobs:
     name: Schema-bindings drift
     runs-on: ubuntu-latest
     needs: [rust]
-    defaults:
-      run:
-        working-directory: polyref
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
