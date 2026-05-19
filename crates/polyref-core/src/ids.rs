@@ -17,8 +17,16 @@ pub const ID_MAX_LEN: usize = 16 * 1024;
 
 /// Valid language tags per ADR-003 / `schemas/language.json`.
 const VALID_LANGUAGES: &[&str] = &[
-    "build", "dockerfile", "java", "json", "jsonschema", "openapi", "py",
-    "sql", "ts", "yaml",
+    "build",
+    "dockerfile",
+    "java",
+    "json",
+    "jsonschema",
+    "openapi",
+    "py",
+    "sql",
+    "ts",
+    "yaml",
 ];
 
 /// Valid repo-side tags.
@@ -74,16 +82,11 @@ fn check_disallowed_chars(s: &str) -> Result<(), IdParseError> {
             return Err(IdParseError::ControlChar);
         }
         // Bidi overrides (U+202A–U+202E, U+2066–U+2069)
-        if ('\u{202A}'..='\u{202E}').contains(&ch)
-            || ('\u{2066}'..='\u{2069}').contains(&ch)
-        {
+        if ('\u{202A}'..='\u{202E}').contains(&ch) || ('\u{2066}'..='\u{2069}').contains(&ch) {
             return Err(IdParseError::BidiOverride);
         }
         // Zero-width chars (U+200B–U+200D, U+FEFF, U+2060)
-        if ('\u{200B}'..='\u{200D}').contains(&ch)
-            || ch == '\u{FEFF}'
-            || ch == '\u{2060}'
-        {
+        if ('\u{200B}'..='\u{200D}').contains(&ch) || ch == '\u{FEFF}' || ch == '\u{2060}' {
             return Err(IdParseError::ZeroWidth);
         }
     }
@@ -176,14 +179,22 @@ impl EntityId {
         // first 3 segments, then from the right for the last segment
         // (stable_hash), and everything in between is local_path.
         let mut parts = input.splitn(4, ':');
-        let repo_side = parts.next().ok_or(IdParseError::Syntax("missing repo_side"))?;
-        let language = parts.next().ok_or(IdParseError::Syntax("missing language"))?;
+        let repo_side = parts
+            .next()
+            .ok_or(IdParseError::Syntax("missing repo_side"))?;
+        let language = parts
+            .next()
+            .ok_or(IdParseError::Syntax("missing language"))?;
         let kind = parts.next().ok_or(IdParseError::Syntax("missing kind"))?;
-        let rest = parts.next().ok_or(IdParseError::Syntax("missing local_path and stable_hash"))?;
+        let rest = parts
+            .next()
+            .ok_or(IdParseError::Syntax("missing local_path and stable_hash"))?;
 
         // rest = "<local_path>:<stable_hash>" where stable_hash is last
         // 12 chars after the last `:`.
-        let last_colon = rest.rfind(':').ok_or(IdParseError::Syntax("missing stable_hash separator"))?;
+        let last_colon = rest
+            .rfind(':')
+            .ok_or(IdParseError::Syntax("missing stable_hash separator"))?;
         let local_path = &rest[..last_colon];
         let stable_hash = &rest[last_colon + 1..];
 
@@ -202,7 +213,9 @@ impl EntityId {
             return Err(IdParseError::Syntax("empty kind"));
         }
         if !kind.chars().all(|c| c.is_ascii_lowercase() || c == '_') {
-            return Err(IdParseError::Syntax("kind must be lowercase ascii + underscore"));
+            return Err(IdParseError::Syntax(
+                "kind must be lowercase ascii + underscore",
+            ));
         }
 
         // Validate local_path: must be non-empty
@@ -214,7 +227,10 @@ impl EntityId {
         if stable_hash.len() != 12 {
             return Err(IdParseError::Syntax("stable_hash must be 12 hex chars"));
         }
-        if !stable_hash.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()) {
+        if !stable_hash
+            .chars()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+        {
             return Err(IdParseError::Syntax("stable_hash must be lowercase hex"));
         }
 
@@ -313,7 +329,9 @@ impl ArtifactId {
             .ok_or(IdParseError::Syntax("must start with 'artifact:'"))?;
 
         let mut parts = stripped.splitn(3, ':');
-        let repo_side = parts.next().ok_or(IdParseError::Syntax("missing repo_side"))?;
+        let repo_side = parts
+            .next()
+            .ok_or(IdParseError::Syntax("missing repo_side"))?;
         let _rest = parts.next().ok_or(IdParseError::Syntax("missing path"))?;
 
         // If there's a third part from splitn(3), combine with rest
@@ -336,7 +354,10 @@ impl ArtifactId {
         if content_hash.len() != 12 {
             return Err(IdParseError::Syntax("content_hash must be 12 hex chars"));
         }
-        if !content_hash.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()) {
+        if !content_hash
+            .chars()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+        {
             return Err(IdParseError::Syntax("content_hash must be lowercase hex"));
         }
 
@@ -397,12 +418,17 @@ impl CorrId {
             return Err(IdParseError::Syntax("empty kind"));
         }
         if !kind.chars().all(|c| c.is_ascii_lowercase() || c == '_') {
-            return Err(IdParseError::Syntax("kind must be lowercase ascii + underscore"));
+            return Err(IdParseError::Syntax(
+                "kind must be lowercase ascii + underscore",
+            ));
         }
         if hash.len() < 16 || hash.len() > 64 {
             return Err(IdParseError::Syntax("hash must be 16–64 hex chars"));
         }
-        if !hash.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()) {
+        if !hash
+            .chars()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+        {
             return Err(IdParseError::Syntax("hash must be lowercase hex"));
         }
 
@@ -463,12 +489,17 @@ impl EdgeId {
             return Err(IdParseError::Syntax("empty kind"));
         }
         if !kind.chars().all(|c| c.is_ascii_lowercase() || c == '_') {
-            return Err(IdParseError::Syntax("kind must be lowercase ascii + underscore"));
+            return Err(IdParseError::Syntax(
+                "kind must be lowercase ascii + underscore",
+            ));
         }
         if hash.len() < 16 || hash.len() > 64 {
             return Err(IdParseError::Syntax("hash must be 16–64 hex chars"));
         }
-        if !hash.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()) {
+        if !hash
+            .chars()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+        {
             return Err(IdParseError::Syntax("hash must be lowercase hex"));
         }
 
@@ -563,7 +594,9 @@ mod tests {
     fn entity_id_parse_rejects_invalid_kind() {
         assert_eq!(
             EntityId::parse("old:ts:HANDLER:src/h.ts:0123456789ab"),
-            Err(IdParseError::Syntax("kind must be lowercase ascii + underscore"))
+            Err(IdParseError::Syntax(
+                "kind must be lowercase ascii + underscore"
+            ))
         );
     }
 

@@ -205,7 +205,10 @@ fn migration_map_allows_language_mismatch_when_kinds_match() {
     let mut map = BTreeMap::new();
     map.insert(old, new);
     let result = MigrationMap::try_new(map, vec![], vec![]);
-    assert!(result.is_ok(), "cross-language migration must succeed when kinds match");
+    assert!(
+        result.is_ok(),
+        "cross-language migration must succeed when kinds match"
+    );
 }
 
 #[test]
@@ -230,11 +233,11 @@ fn migration_map_iter_is_deterministic() {
 
 #[test]
 fn report_assemble_rejects_accepted_with_missing_endpoint_unknown() {
-    use polyref_core::report::{
-        CandidateDecision, ObservationDecision, ObservationRow, ReportAuditPointers,
-        ReportCandidate, ReportConfigs, ReportParts, ReportRepoRef, ReportRepos,
-    };
     use polyref_core::observation::Visibility;
+    use polyref_core::report::{
+        ObservationDecision, ObservationRow, ReportAuditPointers, ReportCandidate, ReportConfigs,
+        ReportParts, ReportRepoRef, ReportRepos,
+    };
 
     // Build a ReportParts where all observations are Accepted (so
     // candidate_decision would compute to Accepted) but
@@ -287,11 +290,11 @@ fn report_assemble_rejects_accepted_with_missing_endpoint_unknown() {
 
 #[test]
 fn report_assemble_accepts_valid_report() {
+    use polyref_core::observation::Visibility;
     use polyref_core::report::{
         CandidateDecision, ObservationDecision, ObservationRow, ReportAuditPointers,
         ReportCandidate, ReportConfigs, ReportParts, ReportRepoRef, ReportRepos,
     };
-    use polyref_core::observation::Visibility;
 
     let parts = ReportParts {
         report_id: "test-report-2".to_owned(),

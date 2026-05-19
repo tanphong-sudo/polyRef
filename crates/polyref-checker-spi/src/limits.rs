@@ -107,16 +107,11 @@ impl SafePath {
                 return Err(SafePathError::Disallowed);
             }
             // Bidi overrides
-            if ('\u{202A}'..='\u{202E}').contains(&ch)
-                || ('\u{2066}'..='\u{2069}').contains(&ch)
-            {
+            if ('\u{202A}'..='\u{202E}').contains(&ch) || ('\u{2066}'..='\u{2069}').contains(&ch) {
                 return Err(SafePathError::Disallowed);
             }
             // Zero-width
-            if ('\u{200B}'..='\u{200D}').contains(&ch)
-                || ch == '\u{FEFF}'
-                || ch == '\u{2060}'
-            {
+            if ('\u{200B}'..='\u{200D}').contains(&ch) || ch == '\u{FEFF}' || ch == '\u{2060}' {
                 return Err(SafePathError::Disallowed);
             }
         }

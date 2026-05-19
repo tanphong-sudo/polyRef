@@ -15,7 +15,7 @@ pub mod extractor;
 pub mod limits;
 
 pub use checker::{CheckRequest, CheckResult, DescribeResult, EndpointArg};
-pub use envelope::{JsonRpcRequest, JsonRpcResponse, JsonRpcError, JsonRpcEnvelopeError};
+pub use envelope::{JsonRpcEnvelopeError, JsonRpcError, JsonRpcRequest, JsonRpcResponse};
 pub use error::SpiError;
 pub use extractor::{ExtractRequest, ExtractResult, ExtractedEntity, UnsupportedFeatureNote};
 pub use limits::{Limits, LimitsError, SafePath, SafePathError};

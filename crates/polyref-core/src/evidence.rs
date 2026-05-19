@@ -41,27 +41,40 @@ impl EvidencePointer {
 
         // Suffix must be 1–512 bytes
         if suffix.is_empty() {
-            return Err(EvidencePointerError::Invalid("empty path after 'evidence/'"));
+            return Err(EvidencePointerError::Invalid(
+                "empty path after 'evidence/'",
+            ));
         }
         if suffix.len() > Self::MAX_SUFFIX_LEN {
-            return Err(EvidencePointerError::Invalid("path too long (max 512 chars after 'evidence/')"));
+            return Err(EvidencePointerError::Invalid(
+                "path too long (max 512 chars after 'evidence/')",
+            ));
         }
 
         // Only allowed chars: A-Z a-z 0-9 _ . / -
-        if !suffix.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'.' || b == b'/' || b == b'-') {
-            return Err(EvidencePointerError::Invalid("contains disallowed character"));
+        if !suffix
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'.' || b == b'/' || b == b'-')
+        {
+            return Err(EvidencePointerError::Invalid(
+                "contains disallowed character",
+            ));
         }
 
         // No parent traversal
         for segment in suffix.split('/') {
             if segment == ".." {
-                return Err(EvidencePointerError::Invalid("contains parent-traversal '..'"));
+                return Err(EvidencePointerError::Invalid(
+                    "contains parent-traversal '..'",
+                ));
             }
         }
 
         // No empty segments (double slash)
         if suffix.contains("//") {
-            return Err(EvidencePointerError::Invalid("contains empty path segment '//'"));
+            return Err(EvidencePointerError::Invalid(
+                "contains empty path segment '//'",
+            ));
         }
 
         Ok(Self(input.to_owned()))

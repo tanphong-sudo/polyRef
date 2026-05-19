@@ -65,7 +65,12 @@ impl SourceSpan {
                 return Err(SpanError::Utf16Inverted);
             }
         }
-        Ok(Self { artifact, start, end, utf16_cols })
+        Ok(Self {
+            artifact,
+            start,
+            end,
+            utf16_cols,
+        })
     }
 
     /// Owning artifact.
