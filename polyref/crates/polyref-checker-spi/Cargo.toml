@@ -1,0 +1,19 @@
+[package]
+name = "polyref-checker-spi"
+description = "PolyRef checker / extractor plugin SPI envelope types. No runtime I/O."
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+polyref-core = { path = "../polyref-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polyref://schemas/broken-reason.json",
+  "title": "BrokenReason",
+  "description": "Closed set per ADR-005. Lexicographic ascending order is the public contract (hard blocker F-2).",
+  "type": "string",
+  "enum": [
+    "build_target_unreachable",
+    "event_payload_incompatible",
+    "generated_client_stale",
+    "generator_mismatch",
+    "handler_binding_mismatch",
+    "local_checker_failure",
+    "migration_map_conflict",
+    "query_table_missing",
+    "required_field_drift",
+    "route_path_refuted",
+    "schema_incompatible",
+    "workflow_packages_old_target"
+  ]
+}

@@ -1,0 +1,42 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/polyref-core",
+    "crates/polyref-checker-spi",
+]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.79"
+license = "Apache-2.0"
+authors = ["PolyRef Contributors"]
+repository = "https://example.invalid/polyref"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+unused_must_use = "deny"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+# Pedantic is enabled at warn level once the Slice 1 stubs become real
+# code. For the skeleton we keep it permissive so the workspace ships
+# green without spurious warnings on todo!() bodies.
+pedantic = { level = "allow", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+todo = "allow"
+unimplemented = "allow"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+unicode-normalization = "0.1"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polyref://schemas/observation/build-target.json",
+  "title": "BuildTargetObservation",
+  "type": "object",
+  "required": [
+    "target_name",
+    "visibility",
+    "support",
+    "defined_semantics"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "target_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "generator_command": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "expected_artifact_path": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "visibility": {
+      "$ref": "polyref://schemas/observation/visibility.json"
+    },
+    "support": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "polyref://schemas/ids/correspondence-id.json"
+          },
+          {
+            "$ref": "polyref://schemas/ids/edge-id.json"
+          }
+        ]
+      }
+    },
+    "defined_semantics": {
+      "type": "boolean"
+    }
+  }
+}

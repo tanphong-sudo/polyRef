@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polyref://schemas/ids/entity-id.json",
+  "title": "EntityId",
+  "description": "EntityId grammar per ADR-003. Layout: <repo_side>:<language>:<kind>:<local_path>:<stable_hash>. stable_hash is first 12 hex chars of SHA-256 over the canonicalized local-facts payload. Type-respecting check on MigrationMap compares the kind segment ONLY (not language); cross-language migrations are first-class per paper Definition 5.",
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 16384,
+  "pattern": "^(old|new):(build|dockerfile|java|json|jsonschema|openapi|py|sql|ts|yaml):[a-z_]+:[A-Za-z0-9._/#:\\-]+:[0-9a-f]{12}$"
+}

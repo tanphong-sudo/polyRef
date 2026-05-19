@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polyref://schemas/correspondence-kind.json",
+  "title": "CorrespondenceKind",
+  "description": "Closed set of correspondence kinds per paper Table 3. The paper lists 'call' separately from 'route' in \u00a73.2 ('the initial kind set is deliberately modest: call, route, schema, serialization, configuration, build, query/table, event, test-oracle, and workflow') so we keep both. 11 entries; revisit if Slice 2 review prefers to merge call into route.",
+  "type": "string",
+  "enum": [
+    "build_codegen",
+    "call",
+    "configuration",
+    "event",
+    "generated_client",
+    "query_table",
+    "route",
+    "schema",
+    "serialization",
+    "test_oracle",
+    "workflow"
+  ]
+}

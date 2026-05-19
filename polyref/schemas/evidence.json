@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polyref://schemas/evidence.json",
+  "title": "Evidence",
+  "description": "Outcome carries reason as a tag-payload. Pres and Migrated MUST NOT carry an unknown_reason or broken_reason. The fail-closed invariant is enforced at the type level by polyref-core.",
+  "type": "object",
+  "required": [
+    "outcome",
+    "predicate",
+    "checker_version",
+    "rule_version"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "outcome": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "tag"
+          ],
+          "properties": {
+            "tag": {
+              "const": "pres"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "tag"
+          ],
+          "properties": {
+            "tag": {
+              "const": "migrated"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "tag",
+            "reason"
+          ],
+          "properties": {
+            "tag": {
+              "const": "broken"
+            },
+            "reason": {
+              "$ref": "polyref://schemas/broken-reason.json"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "tag",
+            "reason"
+          ],
+          "properties": {
+            "tag": {
+              "const": "unknown"
+            },
+            "reason": {
+              "$ref": "polyref://schemas/unknown-reason.json"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "predicate": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "spans": {
+      "type": "array",
+      "items": {
+        "$ref": "polyref://schemas/source-span.json"
+      },
+      "default": []
+    },
+    "pointers": {
+      "type": "array",
+      "items": {
+        "$ref": "polyref://schemas/evidence-pointer.json"
+      },
+      "default": []
+    },
+    "checker_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "rule_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    }
+  }
+}

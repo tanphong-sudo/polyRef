@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polyref://schemas/audit-event.json",
+  "title": "AuditEvent",
+  "description": "Placeholder for Slice 1; expand in Slice 2 with the closed event-tag list per ADR-006.",
+  "type": "object",
+  "required": [
+    "ts",
+    "report_id",
+    "stage",
+    "tag"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "ts": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "report_id": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "stage": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "tag": {
+      "type": "string",
+      "maxLength": 64
+    }
+  }
+}

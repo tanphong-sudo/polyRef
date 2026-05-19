@@ -1,0 +1,8 @@
+PolyRef research prototype.
+
+License: Apache-2.0 (recommended default per claude/05-handoff-1-core-ir.md
+hard blocker F-9). Replace this placeholder with the full Apache-2.0 text
+once the project owner confirms the licence.
+
+This file exists so cargo-deny does not flag a missing licence during the
+Slice 1 skeleton phase. It is NOT a substitute for the full licence text.

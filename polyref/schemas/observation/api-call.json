@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polyref://schemas/observation/api-call.json",
+  "title": "ApiCallObservation",
+  "type": "object",
+  "required": [
+    "method",
+    "path",
+    "visibility",
+    "support",
+    "defined_semantics"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "method": {
+      "type": "string",
+      "enum": [
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "HEAD",
+        "OPTIONS"
+      ]
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "request_schema_id": {
+      "$ref": "polyref://schemas/ids/entity-id.json"
+    },
+    "response_schema_id": {
+      "$ref": "polyref://schemas/ids/entity-id.json"
+    },
+    "client_id": {
+      "$ref": "polyref://schemas/ids/entity-id.json"
+    },
+    "visibility": {
+      "$ref": "polyref://schemas/observation/visibility.json"
+    },
+    "support": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "polyref://schemas/ids/correspondence-id.json"
+          },
+          {
+            "$ref": "polyref://schemas/ids/edge-id.json"
+          }
+        ]
+      }
+    },
+    "defined_semantics": {
+      "type": "boolean"
+    }
+  }
+}

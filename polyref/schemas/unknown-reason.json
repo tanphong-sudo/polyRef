@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polyref://schemas/unknown-reason.json",
+  "title": "UnknownReason",
+  "description": "Closed set per ADR-005. Lexicographic ascending order is the public contract (hard blocker F-2).",
+  "type": "string",
+  "enum": [
+    "ambiguous_endpoint",
+    "checker_timeout",
+    "cyclic_generator",
+    "dynamic_evidence_unverified",
+    "dynamic_string",
+    "generated_evidence_missing",
+    "generated_evidence_weak",
+    "migration_map_ambiguous",
+    "missing_endpoint",
+    "no_accepting_rule_applied",
+    "observation_rewrite_undefined",
+    "opaque_build_cache",
+    "plugin_failure",
+    "reflection",
+    "unsupported_extractor",
+    "unsupported_framework"
+  ]
+}

@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polyref://schemas/extractor-spi/extract.json",
+  "title": "Extractor.extract request and response",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "request": {
+      "type": "object",
+      "required": [
+        "artifact_path",
+        "content_hash",
+        "language",
+        "deadline_ms",
+        "log_dir"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "artifact_path": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "content_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "language": {
+          "$ref": "polyref://schemas/language.json"
+        },
+        "options": {
+          "type": "object"
+        },
+        "deadline_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600000
+        },
+        "log_dir": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      }
+    },
+    "response": {
+      "type": "object",
+      "required": [
+        "entities",
+        "local_facts",
+        "unsupported_features",
+        "extractor_version"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "entities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "entity_id",
+              "kind",
+              "local_name",
+              "source_span"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "entity_id": {
+                "$ref": "polyref://schemas/ids/entity-id.json"
+              },
+              "kind": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "local_name": {
+                "type": "string",
+                "maxLength": 1024
+              },
+              "type": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "source_span": {
+                "$ref": "polyref://schemas/source-span.json"
+              }
+            }
+          }
+        },
+        "local_facts": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "unsupported_features": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "feature",
+              "span"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "feature": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "span": {
+                "$ref": "polyref://schemas/source-span.json"
+              },
+              "note": {
+                "type": "string",
+                "maxLength": 1024
+              }
+            }
+          }
+        },
+        "extractor_version": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polyref://schemas/manifest.json",
+  "title": "RunManifest",
+  "description": "Placeholder for Slice 1; expanded in Slice 2 by polyref-loader.",
+  "type": "object",
+  "required": [
+    "report_id",
+    "schema_version"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "0.1.0"
+    }
+  }
+}

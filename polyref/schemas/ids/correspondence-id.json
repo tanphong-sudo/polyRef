@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polyref://schemas/ids/correspondence-id.json",
+  "title": "CorrId",
+  "type": "string",
+  "minLength": 1,
+  "maxLength": 4096,
+  "pattern": "^corr:[a-z_]+:[0-9a-f]{16,64}$"
+}

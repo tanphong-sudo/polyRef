@@ -1,0 +1,15 @@
+# Workspace-wide cargo settings.
+#
+# We rely on the `[workspace.lints]` table in Cargo.toml for `--deny warnings`
+# semantics rather than RUSTFLAGS, which avoids breaking proc-macro and
+# build-script crates while still gating the deliverable crates.
+
+[build]
+incremental = true
+
+[term]
+color = "always"
+
+[net]
+retry = 0
+git-fetch-with-cli = true

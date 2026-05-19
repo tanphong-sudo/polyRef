@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polyref://schemas/report.json",
+  "title": "ValidationReport",
+  "description": "Frozen report contract per ADR-006. The fail-closed invariant (Accepted \u21d2 missing_endpoint_unknown == false) is enforced at type-level by polyref-core::report::ValidationReport::assemble.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "report_id",
+    "candidate",
+    "repos",
+    "configs",
+    "observations",
+    "candidate_decision",
+    "missing_endpoint_unknown",
+    "audit_pointers"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "report_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "candidate": {
+      "type": "object",
+      "required": [
+        "candidate_id",
+        "source",
+        "patch_hash"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "candidate_id": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "llm",
+            "ide",
+            "template",
+            "manual"
+          ]
+        },
+        "patch_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "repos": {
+      "type": "object",
+      "required": [
+        "old",
+        "new"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "old": {
+          "$ref": "#/$defs/repoRef"
+        },
+        "new": {
+          "$ref": "#/$defs/repoRef"
+        }
+      }
+    },
+    "configs": {
+      "type": "object",
+      "required": [
+        "extractor_versions",
+        "checker_versions"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "extractor_versions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "checker_versions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/observationRow"
+      }
+    },
+    "candidate_decision": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "broken",
+        "unknown"
+      ]
+    },
+    "missing_endpoint_unknown": {
+      "type": "boolean"
+    },
+    "audit_pointers": {
+      "type": "object",
+      "required": [
+        "audit_ndjson",
+        "manifest_json"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "audit_ndjson": {
+          "$ref": "polyref://schemas/evidence-pointer.json"
+        },
+        "manifest_json": {
+          "$ref": "polyref://schemas/evidence-pointer.json"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "repoRef": {
+      "type": "object",
+      "required": [
+        "repo_id",
+        "commit"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "repo_id": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40,64}$"
+        }
+      }
+    },
+    "observationRow": {
+      "type": "object",
+      "required": [
+        "observation_id",
+        "obs_kind",
+        "visibility",
+        "frontier_size",
+        "items",
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "observation_id": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "obs_kind": {
+          "$ref": "polyref://schemas/observation/_kind.json"
+        },
+        "visibility": {
+          "$ref": "polyref://schemas/observation/visibility.json"
+        },
+        "frontier_size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "polyref://schemas/evidence.json"
+          }
+        },
+        "observation_rewrite": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "accepted",
+            "broken",
+            "unknown"
+          ]
+        }
+      }
+    }
+  }
+}

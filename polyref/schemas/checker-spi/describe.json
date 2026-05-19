@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polyref://schemas/checker-spi/describe.json",
+  "title": "KindChecker.describe response",
+  "type": "object",
+  "required": [
+    "contract_id",
+    "kind_id",
+    "endpoint_signature",
+    "required_evidence_fields",
+    "compat_rule_id",
+    "migrate_rule_id",
+    "plugin_version",
+    "default_timeout_ms",
+    "supported_unknown_reasons",
+    "supported_broken_reasons"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "contract_id": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "kind_id": {
+      "$ref": "polyref://schemas/correspondence-kind.json"
+    },
+    "endpoint_signature": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "required_evidence_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "compat_rule_id": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "migrate_rule_id": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "plugin_version": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "default_timeout_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 600000
+    },
+    "supported_unknown_reasons": {
+      "type": "array",
+      "items": {
+        "$ref": "polyref://schemas/unknown-reason.json"
+      }
+    },
+    "supported_broken_reasons": {
+      "type": "array",
+      "items": {
+        "$ref": "polyref://schemas/broken-reason.json"
+      }
+    }
+  }
+}

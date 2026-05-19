@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polyref://schemas/evidence-pointer.json",
+  "title": "EvidencePointer",
+  "description": "Relative POSIX path under the report's evidence/ directory. Recommended by hard blocker F-7; final regex frozen by Slice 1 ADR addendum.",
+  "type": "string",
+  "minLength": 9,
+  "maxLength": 4096,
+  "pattern": "^evidence/[A-Za-z0-9_./\\-]{1,512}$"
+}

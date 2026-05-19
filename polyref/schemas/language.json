@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polyref://schemas/language.json",
+  "title": "Language",
+  "description": "Language tag carried by EntityId. The literal 'build' covers package manifests and build scripts (package.json, pyproject.toml, pom.xml, build.gradle, Bazel BUILD, Makefile, CMakeLists.txt, lockfiles). Per ADR-003.",
+  "type": "string",
+  "enum": [
+    "build",
+    "dockerfile",
+    "java",
+    "json",
+    "jsonschema",
+    "openapi",
+    "py",
+    "sql",
+    "ts",
+    "yaml"
+  ]
+}

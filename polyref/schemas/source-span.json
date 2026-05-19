@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polyref://schemas/source-span.json",
+  "title": "SourceSpan",
+  "description": "Half-open span. start.line >= 1 (NonZeroU32 in Rust). col is 0-indexed UTF-8 byte column. utf16_cols is optional for editor interop. start <= end (lexicographic on (line, col)).",
+  "type": "object",
+  "required": [
+    "artifact",
+    "start",
+    "end"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "artifact": {
+      "$ref": "polyref://schemas/ids/artifact-id.json"
+    },
+    "start": {
+      "$ref": "#/$defs/lineCol"
+    },
+    "end": {
+      "$ref": "#/$defs/lineCol"
+    },
+    "utf16_cols": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "minItems": 2,
+      "maxItems": 2
+    }
+  },
+  "$defs": {
+    "lineCol": {
+      "type": "object",
+      "required": [
+        "line",
+        "col"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "col": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

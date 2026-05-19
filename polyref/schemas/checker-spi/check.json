@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polyref://schemas/checker-spi/check.json",
+  "title": "KindChecker.check request and response",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "request": {
+      "type": "object",
+      "required": [
+        "contract_id",
+        "kind",
+        "endpoints",
+        "old_repo_root",
+        "new_repo_root",
+        "deadline_ms",
+        "log_dir"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "contract_id": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "kind": {
+          "$ref": "polyref://schemas/correspondence-kind.json"
+        },
+        "endpoints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "entity_id",
+              "type"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "entity_id": {
+                "$ref": "polyref://schemas/ids/entity-id.json"
+              },
+              "type": {
+                "type": "string",
+                "maxLength": 256
+              }
+            }
+          }
+        },
+        "old_repo_root": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "new_repo_root": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "migration_map_excerpt": {
+          "type": "object"
+        },
+        "observation_excerpt": {
+          "type": "object"
+        },
+        "deadline_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600000
+        },
+        "log_dir": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      }
+    },
+    "response": {
+      "$ref": "polyref://schemas/evidence.json"
+    }
+  }
+}

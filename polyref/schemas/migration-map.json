@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polyref://schemas/migration-map.json",
+  "title": "MigrationMap",
+  "description": "Per paper Definition 5, type-respecting iff type(n) = type(\u03bc(n)) where type is the local kind. Cross-language migrations are allowed when kinds match.",
+  "type": "object",
+  "required": [
+    "entity_rewrites",
+    "observation_part_rewrites",
+    "conflicts",
+    "type_respecting"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "entity_rewrites": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "old",
+          "new"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "old": {
+            "$ref": "polyref://schemas/ids/entity-id.json"
+          },
+          "new": {
+            "$ref": "polyref://schemas/ids/entity-id.json"
+          }
+        }
+      }
+    },
+    "observation_part_rewrites": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "type_respecting": {
+      "type": "boolean"
+    }
+  }
+}

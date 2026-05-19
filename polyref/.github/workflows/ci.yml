@@ -1,0 +1,55 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  schemas:
+    name: schema validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: install jsonschema
+        run: python3 -m pip install --user jsonschema
+      - name: validate schemas
+        working-directory: polyref
+        run: bash scripts/verify-schemas.sh
+
+  rust:
+    name: cargo build / test / clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: install rust toolchain
+        # Honors polyref/rust-toolchain.toml.
+        run: rustup show
+      - name: cargo build
+        working-directory: polyref
+        run: cargo build --workspace --all-targets
+      - name: cargo test
+        working-directory: polyref
+        # `--include-ignored` so we surface the TDD red state in CI logs
+        # without failing the run; the ignored suite will flip to required
+        # once Slice 1 implementations land.
+        run: cargo test --workspace
+      - name: cargo clippy
+        working-directory: polyref
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: cargo fmt
+        working-directory: polyref
+        run: cargo fmt --all -- --check
+
+  deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: install rust toolchain
+        run: rustup show
+      - name: install cargo-deny
+        run: cargo install --locked cargo-deny
+      - name: cargo deny check
+        working-directory: polyref
+        run: cargo deny check

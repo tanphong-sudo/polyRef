@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polyref://schemas/validation-status.json",
+  "title": "ValidationStatus",
+  "description": "Closed set of frontier-item statuses per paper Definition 8.",
+  "type": "string",
+  "enum": [
+    "broken",
+    "migrated",
+    "pres",
+    "unknown"
+  ]
+}

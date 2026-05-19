@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polyref://schemas/observation/_kind.json",
+  "title": "ObservationKind discriminator",
+  "type": "string",
+  "enum": [
+    "api_call",
+    "build_target",
+    "schema_validation",
+    "test_invocation",
+    "workflow_run"
+  ]
+}
