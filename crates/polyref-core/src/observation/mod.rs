@@ -59,6 +59,37 @@ pub enum Observation {
     SchemaValidation(SchemaObs),
 }
 
+impl Observation {
+    /// The canonical snake-case tag identical to the serde
+    /// `obs_kind` discriminator and `schemas/observation/_kind.json`.
+    ///
+    /// Defined here so consumer crates do not need a wildcard `_` arm
+    /// on this `#[non_exhaustive]` business enum (paper Def. 6).
+    #[must_use]
+    pub fn kind_tag(&self) -> &'static str {
+        match self {
+            Observation::ApiCall(_) => "api_call",
+            Observation::TestInvocation(_) => "test_invocation",
+            Observation::BuildTarget(_) => "build_target",
+            Observation::WorkflowRun(_) => "workflow_run",
+            Observation::SchemaValidation(_) => "schema_validation",
+        }
+    }
+
+    /// Borrow the common observation header (visibility, support,
+    /// defined-semantics flag) regardless of kind.
+    #[must_use]
+    pub fn header(&self) -> &ObsHeader {
+        match self {
+            Observation::ApiCall(o) => &o.header,
+            Observation::TestInvocation(o) => &o.header,
+            Observation::BuildTarget(o) => &o.header,
+            Observation::WorkflowRun(o) => &o.header,
+            Observation::SchemaValidation(o) => &o.header,
+        }
+    }
+}
+
 /// Common header on every observation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ObsHeader {
