@@ -180,10 +180,6 @@ impl SqliteGraphStore {
     }
 }
 
-fn poisoned_lock_error() -> GraphStoreError {
-    GraphStoreError::Sqlite(rusqlite::Error::InvalidQuery)
-}
-
 impl GraphStore for SqliteGraphStore {
     fn migrate(&self) -> Result<()> {
         self.with_conn(|conn| {

@@ -8,6 +8,8 @@
 //! These tests use `:memory:` SQLite databases so they run on any CI
 //! runner without filesystem state.
 
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use polyref_core::{
     artifact_kind::ArtifactKind,
     correspondence_kind::CorrespondenceKind,
