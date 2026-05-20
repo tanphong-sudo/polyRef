@@ -34,7 +34,10 @@ pub mod model;
 pub mod store;
 mod tags;
 
-pub use audit::{AuditEvent, AuditEventError, AuditEventTag, AuditEventTagParseError};
+pub use audit::{
+    AuditEvent, AuditEventError, AuditEventTag, AuditEventTagParseError, AuditReadError,
+    AuditReader, AuditWriteError, AuditWriter, AUDIT_LINE_MAX_BYTES,
+};
 pub use error::GraphStoreError;
 pub use model::{Artifact, BuildEdge, Correspondence, Entity};
 pub use store::{GraphStore, SqliteGraphStore};

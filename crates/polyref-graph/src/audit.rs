@@ -448,7 +448,6 @@ mod tests {
     }
 }
 
-
 // ─── Writer ─────────────────────────────────────────────────────────────
 
 use std::fs::{File, OpenOptions};
@@ -652,7 +651,6 @@ mod writer_tests {
     }
 }
 
-
 // ─── Reader ─────────────────────────────────────────────────────────────
 
 use std::io::{BufRead, BufReader};
@@ -777,9 +775,9 @@ impl<R: BufRead> Iterator for AuditReader<R> {
                         // Consume the rest of the line so the iterator
                         // can advance past the corruption.
                         self.inner.consume(take);
-                        return Some(Err(self.synth_bad_json(
-                            "line is not valid UTF-8".to_owned(),
-                        )));
+                        return Some(Err(
+                            self.synth_bad_json("line is not valid UTF-8".to_owned())
+                        ));
                     }
                 };
                 self.scratch.push_str(chunk);
@@ -791,10 +789,7 @@ impl<R: BufRead> Iterator for AuditReader<R> {
             };
 
             // Trim trailing LF / CRLF before parsing.
-            let trimmed = self
-                .scratch
-                .trim_end_matches('\n')
-                .trim_end_matches('\r');
+            let trimmed = self.scratch.trim_end_matches('\n').trim_end_matches('\r');
 
             if trimmed.is_empty() {
                 if saw_eof {
@@ -888,11 +883,9 @@ mod reader_tests {
     fn reader_skips_blank_lines() {
         let mut payload = String::new();
         payload.push_str("\n\n");
-        payload.push_str(&serde_json::to_string(&sample_event(
-            AuditEventTag::RepoLoaded,
-            b'a',
-        ))
-        .unwrap());
+        payload.push_str(
+            &serde_json::to_string(&sample_event(AuditEventTag::RepoLoaded, b'a')).unwrap(),
+        );
         payload.push_str("\n\n");
 
         let r = AuditReader::new(Cursor::new(payload));
