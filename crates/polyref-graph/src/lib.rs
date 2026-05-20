@@ -31,6 +31,7 @@
 pub mod error;
 pub mod model;
 pub mod store;
+mod tags;
 
 pub use error::GraphStoreError;
 pub use model::{Artifact, BuildEdge, Correspondence, Entity};

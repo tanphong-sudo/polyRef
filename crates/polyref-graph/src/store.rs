@@ -23,8 +23,8 @@
 
 use crate::error::{GraphStoreError, Result};
 use crate::model::{Artifact, BuildEdge, Correspondence, Entity, RepoSide};
+use crate::tags;
 use polyref_core::{
-    correspondence_kind::CorrespondenceKind,
     ids::{ArtifactId, CorrId, EdgeId, EntityId},
     Observation,
 };
@@ -226,8 +226,8 @@ impl GraphStore for SqliteGraphStore {
                 params![
                     artifact.artifact_id.as_str(),
                     artifact.repo_side.as_str(),
-                    artifact_kind_tag(artifact.kind),
-                    language_tag(artifact.language),
+                    artifact.kind.as_tag(),
+                    artifact.language.as_tag(),
                     &artifact.local_path,
                     &artifact.content_hash,
                 ],
@@ -280,7 +280,7 @@ impl GraphStore for SqliteGraphStore {
                     entity.entity_id.as_str(),
                     entity.artifact_id.as_str(),
                     entity.repo_side.as_str(),
-                    language_tag(entity.language),
+                    entity.language.as_tag(),
                     &entity.kind,
                     &entity.local_path,
                     &entity.stable_hash,
@@ -323,7 +323,7 @@ impl GraphStore for SqliteGraphStore {
                     rule_version = excluded.rule_version",
                 params![
                     corr.corr_id.as_str(),
-                    correspondence_kind_tag(corr.kind),
+                    corr.kind.as_tag(),
                     corr.rule_version.as_deref(),
                 ],
             )?;
@@ -376,7 +376,7 @@ impl GraphStore for SqliteGraphStore {
             }
             Ok(Some(Correspondence {
                 corr_id: parse_corr_id(&header.id)?,
-                kind: parse_correspondence_kind(&header.kind)?,
+                kind: tags::parse_correspondence_kind(&header.kind)?,
                 rule_version: header.rule_version,
                 endpoints: parsed_endpoints,
             }))
@@ -422,7 +422,8 @@ impl GraphStore for SqliteGraphStore {
 
     fn save_observation(&self, observation_id: &str, observation: &Observation) -> Result<()> {
         let payload = serde_json::to_string(observation)?;
-        let (kind, visibility) = observation_tags(observation);
+        let kind = observation.kind_tag();
+        let visibility = observation.header().visibility.as_tag();
         self.with_conn(|conn| {
             conn.execute(
                 "INSERT INTO observation (observation_id, obs_kind, visibility, payload) \
@@ -473,207 +474,39 @@ impl GraphStore for SqliteGraphStore {
     }
 }
 
-// ─── Tag tables ────────────────────────────────────────────────────────
+// ─── Tag bridge ────────────────────────────────────────────────────────
 //
-// We round-trip enums through their JSON tag strings so the SQL layer
-// matches the schemas (single source of truth). Adding a new variant
-// touches both this table and the schema CHANGELOG.
+// Encoders are one-liners: every business enum exposes `as_tag()` in
+// `polyref-core`. Decoders live in the `tags` module so consumer code
+// keeps its tag-string knowledge in exactly one place per enum.
 
-fn artifact_kind_tag(kind: polyref_core::artifact_kind::ArtifactKind) -> &'static str {
-    use polyref_core::artifact_kind::ArtifactKind as A;
-    match kind {
-        A::BuildFile => "build_file",
-        A::Config => "config",
-        A::Dockerfile => "dockerfile",
-        A::Generated => "generated",
-        A::Query => "query",
-        A::Schema => "schema",
-        A::SourceFile => "source_file",
-        A::Test => "test",
-        A::Workflow => "workflow",
-        // `ArtifactKind` is `#[non_exhaustive]` from `polyref-core`. A
-        // future variant must extend this match before the GraphStore
-        // can persist it. We refuse to silently drop unknown kinds.
-        other => unreachable_artifact_kind(other),
-    }
-}
-
-#[cold]
-fn unreachable_artifact_kind(_: polyref_core::artifact_kind::ArtifactKind) -> &'static str {
-    // Intentional: any new ArtifactKind variant must be wired here in
-    // the same PR that adds it to `polyref-core` and the schema.
-    // Returning a sentinel keeps fail-closed semantics: the row will
-    // round-trip a stable but obviously wrong tag, and the
-    // `parse_artifact_kind` decoder will reject it with
-    // `UnsupportedEnum`. Tests + drift check catch this.
-    "__unsupported__"
-}
-
-fn parse_artifact_kind(s: &str) -> Result<polyref_core::artifact_kind::ArtifactKind> {
-    use polyref_core::artifact_kind::ArtifactKind as A;
-    match s {
-        "build_file" => Ok(A::BuildFile),
-        "config" => Ok(A::Config),
-        "dockerfile" => Ok(A::Dockerfile),
-        "generated" => Ok(A::Generated),
-        "query" => Ok(A::Query),
-        "schema" => Ok(A::Schema),
-        "source_file" => Ok(A::SourceFile),
-        "test" => Ok(A::Test),
-        "workflow" => Ok(A::Workflow),
-        other => Err(GraphStoreError::UnsupportedEnum {
-            enum_name: "ArtifactKind",
-            value: other.to_string(),
-        }),
-    }
-}
-
-fn language_tag(lang: polyref_core::language::Language) -> &'static str {
-    use polyref_core::language::Language as L;
-    match lang {
-        L::Build => "build",
-        L::Dockerfile => "dockerfile",
-        L::Java => "java",
-        L::Json => "json",
-        L::Jsonschema => "jsonschema",
-        L::Openapi => "openapi",
-        L::Py => "py",
-        L::Sql => "sql",
-        L::Ts => "ts",
-        L::Yaml => "yaml",
-        other => unreachable_language(other),
-    }
-}
-
-#[cold]
-fn unreachable_language(_: polyref_core::language::Language) -> &'static str {
-    "__unsupported__"
-}
-
-fn parse_language(s: &str) -> Result<polyref_core::language::Language> {
-    use polyref_core::language::Language as L;
-    match s {
-        "build" => Ok(L::Build),
-        "dockerfile" => Ok(L::Dockerfile),
-        "java" => Ok(L::Java),
-        "json" => Ok(L::Json),
-        "jsonschema" => Ok(L::Jsonschema),
-        "openapi" => Ok(L::Openapi),
-        "py" => Ok(L::Py),
-        "sql" => Ok(L::Sql),
-        "ts" => Ok(L::Ts),
-        "yaml" => Ok(L::Yaml),
-        other => Err(GraphStoreError::UnsupportedEnum {
-            enum_name: "Language",
-            value: other.to_string(),
-        }),
-    }
-}
-
-fn correspondence_kind_tag(kind: CorrespondenceKind) -> &'static str {
-    use CorrespondenceKind as K;
-    match kind {
-        K::BuildCodegen => "build_codegen",
-        K::Call => "call",
-        K::Configuration => "configuration",
-        K::Event => "event",
-        K::GeneratedClient => "generated_client",
-        K::QueryTable => "query_table",
-        K::Route => "route",
-        K::Schema => "schema",
-        K::Serialization => "serialization",
-        K::TestOracle => "test_oracle",
-        K::Workflow => "workflow",
-        other => unreachable_correspondence_kind(other),
-    }
-}
-
-#[cold]
-fn unreachable_correspondence_kind(_: CorrespondenceKind) -> &'static str {
-    "__unsupported__"
-}
-
-fn parse_correspondence_kind(s: &str) -> Result<CorrespondenceKind> {
-    use CorrespondenceKind as K;
-    match s {
-        "build_codegen" => Ok(K::BuildCodegen),
-        "call" => Ok(K::Call),
-        "configuration" => Ok(K::Configuration),
-        "event" => Ok(K::Event),
-        "generated_client" => Ok(K::GeneratedClient),
-        "query_table" => Ok(K::QueryTable),
-        "route" => Ok(K::Route),
-        "schema" => Ok(K::Schema),
-        "serialization" => Ok(K::Serialization),
-        "test_oracle" => Ok(K::TestOracle),
-        "workflow" => Ok(K::Workflow),
-        other => Err(GraphStoreError::UnsupportedEnum {
-            enum_name: "CorrespondenceKind",
-            value: other.to_string(),
-        }),
-    }
-}
-
-fn parse_repo_side(s: &str) -> Result<RepoSide> {
-    match s {
-        "old" => Ok(RepoSide::Old),
-        "new" => Ok(RepoSide::New),
-        other => Err(GraphStoreError::UnsupportedEnum {
-            enum_name: "RepoSide",
-            value: other.to_string(),
-        }),
-    }
-}
-
-fn observation_tags(obs: &Observation) -> (&'static str, &'static str) {
-    use polyref_core::observation::Visibility;
-    let kind = match obs {
-        Observation::ApiCall(_) => "api_call",
-        Observation::TestInvocation(_) => "test_invocation",
-        Observation::BuildTarget(_) => "build_target",
-        Observation::WorkflowRun(_) => "workflow_run",
-        Observation::SchemaValidation(_) => "schema_validation",
-        // `Observation` is `#[non_exhaustive]`; a new kind must extend
-        // this match (and the schema enum). Sentinel keeps the column
-        // queryable; the decode path would reject it.
-        _ => "__unsupported__",
-    };
-    let visibility = match observation_header(obs).visibility {
-        Visibility::Visible => "visible",
-        Visibility::HeldOut => "held_out",
-        Visibility::EvaluationOnly => "evaluation_only",
-        // `Visibility` is `#[non_exhaustive]`. Same convention.
-        _ => "__unsupported__",
-    };
-    (kind, visibility)
-}
-
-fn observation_header(obs: &Observation) -> &polyref_core::observation::ObsHeader {
-    match obs {
-        Observation::ApiCall(o) => &o.header,
-        Observation::TestInvocation(o) => &o.header,
-        Observation::BuildTarget(o) => &o.header,
-        Observation::WorkflowRun(o) => &o.header,
-        Observation::SchemaValidation(o) => &o.header,
-        // Fall back on a static empty header for unknown observation
-        // kinds. Save will store the sentinel tag and decode will
-        // reject; we never panic.
-        _ => fallback_obs_header(),
-    }
-}
-
-fn fallback_obs_header() -> &'static polyref_core::observation::ObsHeader {
-    use polyref_core::observation::{ObsHeader, Visibility};
-    use std::sync::OnceLock;
-    static FALLBACK: OnceLock<ObsHeader> = OnceLock::new();
-    FALLBACK.get_or_init(|| ObsHeader {
-        visibility: Visibility::HeldOut,
-        support: Vec::new(),
-        defined_semantics: false,
+fn parse_entity_id(s: &str) -> Result<EntityId> {
+    EntityId::parse(s).map_err(|e| GraphStoreError::UnsupportedEnum {
+        enum_name: "EntityId",
+        value: format!("{s}: {e}"),
     })
 }
 
-// ─── Decode helpers ────────────────────────────────────────────────────
+fn parse_artifact_id(s: &str) -> Result<ArtifactId> {
+    ArtifactId::parse(s).map_err(|e| GraphStoreError::UnsupportedEnum {
+        enum_name: "ArtifactId",
+        value: format!("{s}: {e}"),
+    })
+}
+
+fn parse_corr_id(s: &str) -> Result<CorrId> {
+    CorrId::parse(s).map_err(|e| GraphStoreError::UnsupportedEnum {
+        enum_name: "CorrId",
+        value: format!("{s}: {e}"),
+    })
+}
+
+fn parse_edge_id(s: &str) -> Result<EdgeId> {
+    EdgeId::parse(s).map_err(|e| GraphStoreError::UnsupportedEnum {
+        enum_name: "EdgeId",
+        value: format!("{s}: {e}"),
+    })
+}
 
 struct RawArtifactRow {
     id: String,
@@ -709,9 +542,9 @@ struct RawEdgeRow {
 fn decode_artifact(row: RawArtifactRow) -> Result<Artifact> {
     Ok(Artifact {
         artifact_id: parse_artifact_id(&row.id)?,
-        repo_side: parse_repo_side(&row.repo_side)?,
-        kind: parse_artifact_kind(&row.kind)?,
-        language: parse_language(&row.language)?,
+        repo_side: tags::parse_repo_side(&row.repo_side)?,
+        kind: tags::parse_artifact_kind(&row.kind)?,
+        language: tags::parse_language(&row.language)?,
         local_path: row.local_path,
         content_hash: row.content_hash,
     })
@@ -721,8 +554,8 @@ fn decode_entity(row: RawEntityRow) -> Result<Entity> {
     Ok(Entity {
         entity_id: parse_entity_id(&row.id)?,
         artifact_id: parse_artifact_id(&row.artifact_id)?,
-        repo_side: parse_repo_side(&row.repo_side)?,
-        language: parse_language(&row.language)?,
+        repo_side: tags::parse_repo_side(&row.repo_side)?,
+        language: tags::parse_language(&row.language)?,
         kind: row.kind,
         local_path: row.local_path,
         stable_hash: row.stable_hash,
@@ -734,33 +567,5 @@ fn decode_build_edge(row: RawEdgeRow) -> Result<BuildEdge> {
         edge_id: parse_edge_id(&row.id)?,
         src_artifact: parse_artifact_id(&row.src)?,
         dst_artifact: parse_artifact_id(&row.dst)?,
-    })
-}
-
-fn parse_entity_id(s: &str) -> Result<EntityId> {
-    EntityId::parse(s).map_err(|e| GraphStoreError::UnsupportedEnum {
-        enum_name: "EntityId",
-        value: format!("{s}: {e}"),
-    })
-}
-
-fn parse_artifact_id(s: &str) -> Result<ArtifactId> {
-    ArtifactId::parse(s).map_err(|e| GraphStoreError::UnsupportedEnum {
-        enum_name: "ArtifactId",
-        value: format!("{s}: {e}"),
-    })
-}
-
-fn parse_corr_id(s: &str) -> Result<CorrId> {
-    CorrId::parse(s).map_err(|e| GraphStoreError::UnsupportedEnum {
-        enum_name: "CorrId",
-        value: format!("{s}: {e}"),
-    })
-}
-
-fn parse_edge_id(s: &str) -> Result<EdgeId> {
-    EdgeId::parse(s).map_err(|e| GraphStoreError::UnsupportedEnum {
-        enum_name: "EdgeId",
-        value: format!("{s}: {e}"),
     })
 }
