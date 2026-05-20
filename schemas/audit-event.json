@@ -2,31 +2,72 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "polyref://schemas/audit-event.json",
   "title": "AuditEvent",
-  "description": "Placeholder for Slice 1; expand in Slice 2 with the closed event-tag list per ADR-006.",
+  "description": "Single line of an append-only NDJSON audit log per ADR-006. The 14 closed event tags cover every stage transition the engine emits. The `tag` enum is the source of truth; consumers (Rust host, plugin workers, eval harness, replay verifier) MUST treat any unknown value as a hard error per ADR-005 closed-enum policy.",
   "type": "object",
   "required": [
     "ts",
     "report_id",
     "stage",
-    "tag"
+    "tag",
+    "actor",
+    "payload_hash"
   ],
-  "additionalProperties": true,
+  "additionalProperties": false,
   "properties": {
     "ts": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+      "description": "RFC 3339 UTC timestamp; replay verifier checks monotonic ordering per stage."
     },
     "report_id": {
       "type": "string",
-      "maxLength": 256
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Stable run id; matches the directory under .polyref/runs/<report_id>/."
     },
     "stage": {
       "type": "string",
-      "maxLength": 64
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Pipeline stage label (free-form within length cap; conventional values: 'extraction', 'graph_build', 'frontier', 'check', 'rewrite', 'reduce', 'report')."
     },
     "tag": {
       "type": "string",
-      "maxLength": 64
+      "description": "Closed event-tag set per ADR-006. Lexicographic ascending order is the public contract (hard blocker F-2).",
+      "enum": [
+        "artifact_classified",
+        "checker_invoked",
+        "checker_result",
+        "correspondence_created",
+        "entity_emitted",
+        "extractor_invoked",
+        "frontier_computed",
+        "frontier_item_status_assigned",
+        "migration_map_built",
+        "obligation_emitted",
+        "observation_rewritten",
+        "observation_status_assigned",
+        "report_finalized",
+        "repo_loaded"
+      ]
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Component that emitted the event (e.g. 'polyref-loader', 'plugin:extractor-typescript@1.2.0', 'polyref-engine')."
+    },
+    "payload_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Lowercase hex SHA-256 of the canonical-JSON serialization of the typed payload kept off-line. Replay verifier reconstructs the chain by recomputing each hash from cache."
+    },
+    "evidence_pointers": {
+      "type": "array",
+      "items": {
+        "$ref": "polyref://schemas/evidence-pointer.json"
+      },
+      "description": "Optional list of validated EvidencePointers under the run's evidence/ directory; never populated for events that touch held-out observations before the candidate decision (ADR-010)."
     }
   }
 }
