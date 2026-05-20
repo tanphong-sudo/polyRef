@@ -140,7 +140,10 @@ impl SqliteGraphStore {
     where
         F: FnOnce(&mut Connection) -> Result<T>,
     {
-        let mut guard = self.conn.lock().map_err(|_| poisoned_lock_error())?;
+        let mut guard = self
+            .conn
+            .lock()
+            .map_err(|_| GraphStoreError::PoisonedLock)?;
         f(&mut guard)
     }
 

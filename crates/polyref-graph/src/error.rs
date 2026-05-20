@@ -45,6 +45,14 @@ pub enum GraphStoreError {
         /// String form of the offending value.
         value: String,
     },
+
+    /// The connection mutex was poisoned by a panic in another thread
+    /// while it held the lock. Per `std::sync::Mutex` semantics the
+    /// connection is in an unknown state; recovery requires a fresh
+    /// `SqliteGraphStore`. We surface this as a typed variant rather
+    /// than reusing a generic SQLite error.
+    #[error("graph store mutex poisoned (a previous handler panicked while holding the lock)")]
+    PoisonedLock,
 }
 
 /// Convenience alias used throughout the crate.
