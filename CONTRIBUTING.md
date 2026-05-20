@@ -38,18 +38,27 @@ Scopes: `polyref-core`, `polyref-checker-spi`, `polyref-graph`, `polyref-loader`
 
 ## Quality gate (before every commit)
 
+CI sets `RUSTFLAGS: "-D warnings"`. Run the gate with the same env so
+warnings can't pass locally and fail CI:
+
 ```bash
-cargo fmt --check
+export RUSTFLAGS="-D warnings"
+cargo fmt --all -- --check
+cargo build --workspace --all-targets
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 cargo deny check bans licenses
 bash scripts/verify-schemas.sh
+bash scripts/schema-bindings-check.sh
 ```
 
-All must pass. Do not push if any fails.
+All must pass. Do not push if any fails. Wrapper: `.kiro/scripts/quality-gate.sh`.
 
 ## Pull requests
 
+- **CI must be green on the head commit before opening or marking ready-for-review.**
+  After every push: `gh run list --branch <branch> --limit 1`. Inspect failures with
+  `gh run view <run-id> --log-failed`. Don't open the PR until status is `success`.
 - Title: conventional-commit style, under 70 chars
 - Body: what changed, why, which layer, what was tested
 - Draft PR for WIP; mark ready-for-review when CI green
