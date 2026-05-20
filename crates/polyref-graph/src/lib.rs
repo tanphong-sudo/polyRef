@@ -28,11 +28,16 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod audit;
 pub mod error;
 pub mod model;
 pub mod store;
 mod tags;
 
+pub use audit::{
+    AuditEvent, AuditEventError, AuditEventTag, AuditEventTagParseError, AuditReadError,
+    AuditReader, AuditWriteError, AuditWriter, AUDIT_LINE_MAX_BYTES,
+};
 pub use error::GraphStoreError;
 pub use model::{Artifact, BuildEdge, Correspondence, Entity};
 pub use store::{GraphStore, SqliteGraphStore};

@@ -34,3 +34,37 @@ Initial schema set:
 
 Reason enum order is **lexicographic ascending of variant names** per
 ADR-005.
+
+## 0.2.0 — Layer 1 audit log
+
+`audit-event.json` no longer a placeholder. Closed `tag` enum (14
+members per ADR-006) plus required `actor` and `payload_hash` fields
+for replay verification:
+
+- `artifact_classified`
+- `checker_invoked`
+- `checker_result`
+- `correspondence_created`
+- `entity_emitted`
+- `extractor_invoked`
+- `frontier_computed`
+- `frontier_item_status_assigned`
+- `migration_map_built`
+- `obligation_emitted`
+- `observation_rewritten`
+- `observation_status_assigned`
+- `report_finalized`
+- `repo_loaded`
+
+Tag enum order is **lexicographic ascending of variant names** per
+ADR-005 (hard blocker F-2).
+
+`additionalProperties` is now `false` on the AuditEvent envelope; this
+is a soft break for any consumer that was relying on the placeholder
+permitting unknown keys, but no such consumer exists in-tree (the audit
+log was a placeholder).
+
+`payload_hash` is `^[a-f0-9]{64}$` (lowercase hex SHA-256). Per ADR-006
+the chain-of-hashes is reconstructable from cache; the actual payload
+lives off-line so leakage of held-out observation fields cannot happen
+through the audit log.
