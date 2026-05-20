@@ -89,3 +89,23 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo build --workspace
       - run: bash scripts/schema-bindings-check.sh
+
+  # ─────────────────────────────────────────────────────────────────────
+  # 5. Security scan (CodeQL + dependency review)
+  # ─────────────────────────────────────────────────────────────────────
+  security:
+    name: Security
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependency review (PR only)
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          deny-licenses: AGPL-3.0, GPL-3.0

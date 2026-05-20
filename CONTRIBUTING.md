@@ -2,94 +2,63 @@
 
 ## Prerequisites
 
-- Rust toolchain ≥ 1.79 (install via [rustup](https://rustup.rs/))
-- Python ≥ 3.10 (for schema validation and plugin development)
+- Rust ≥ 1.79 ([rustup](https://rustup.rs/))
+- Python ≥ 3.10 (schema validation, plugins)
 - `cargo-deny` (`cargo install --locked cargo-deny`)
 
-## Branch strategy
+## Workflow (GitHub Flow)
 
-| Branch | Purpose |
-|--------|---------|
-| `main` | Stable — all CI gates pass. Never push directly. |
-| `feat/<layer>-<description>` | Feature work per build-plan layer. |
-| `fix/<description>` | Bug fixes. |
-| `docs/<description>` | Documentation-only changes. |
-| `chore/<description>` | Tooling, CI, dependency updates. |
+1. Branch from `main`: `git checkout -b feat/<module>-<description>`
+2. Write tests first (TDD RED → GREEN → REFACTOR)
+3. Run quality gate (see below)
+4. Commit with conventional format
+5. Push: `git push -u origin feat/<module>-<description>`
+6. Open PR → CI must pass → squash merge into `main`
 
-Always branch from `main`. Push with `-u` for new branches.
+## Branch naming
+
+```
+feat/<module>-<description>   # feature work
+fix/<description>             # bug fix
+docs/<description>            # docs only
+chore/<description>           # CI, tooling, deps
+```
+
+Name by module/task, not by layer. Keep branches short-lived.
 
 ## Commit format
 
 ```
-<type>(<scope>): <short description>
-
-<optional body explaining why>
+<type>(<scope>): <description under 70 chars>
 ```
 
-**Types**: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`
+Types: `feat` `fix` `refactor` `docs` `test` `chore` `perf` `ci`
 
-**Scopes**: `polyref-core`, `polyref-checker-spi`, `polyref-graph`, `polyref-loader`, `polyref-frontier`, `polyref-engine`, `polyref-rewriter`, `polyref-report`, `polyref-cli`, `schemas`, `coq`, `eval`, `ci`
+Scopes: `polyref-core`, `polyref-checker-spi`, `polyref-graph`, `polyref-loader`, `polyref-frontier`, `polyref-engine`, `polyref-rewriter`, `polyref-report`, `polyref-cli`, `schemas`, `coq`, `eval`, `ci`
 
-Examples:
-```
-feat(polyref-core): implement EntityId parser with NFC validation
-fix(polyref-core): reject bidi overrides in local_path segment
-test(polyref-core): add property test prop_entity_id_roundtrip
-docs(schemas): bump schema version to 0.2.0
-ci: add MSRV matrix to CI workflow
-```
-
-## Development workflow
-
-1. Read the layer spec in [`docs/build-plan.md`](docs/build-plan.md)
-2. Create a feature branch: `git checkout -b feat/layer0-ids`
-3. Write failing tests first (TDD RED)
-4. Implement minimum to pass (GREEN)
-5. Refactor while tests stay green
-6. Run verification (see below)
-7. Commit with conventional format
-8. Open a PR against `main`
-
-## Verification before commit
-
-All four must pass:
+## Quality gate (before every commit)
 
 ```bash
 cargo fmt --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
-cargo deny check
-```
-
-Schema validation:
-
-```bash
+cargo deny check bans licenses
 bash scripts/verify-schemas.sh
 ```
 
-## Pull request process
+All must pass. Do not push if any fails.
 
-1. PR title: concise, under 70 characters
-2. PR body must include:
-   - Summary of changes
-   - Which layer this belongs to
-   - What was tested
-3. All CI checks must pass
-4. At least one approval required
+## Pull requests
 
-## Code style
+- Title: conventional-commit style, under 70 chars
+- Body: what changed, why, which layer, what was tested
+- Draft PR for WIP; mark ready-for-review when CI green
+- **Squash merge** into `main` (default)
+- Delete branch after merge
 
-- `unsafe` is **forbidden** workspace-wide
-- `cargo clippy` warnings are errors
-- Missing docs on public items produce warnings
-- See [`docs/adrs/`](docs/adrs/) for architectural decisions — do not contradict them without a new ADR
+## CI pipeline
 
-## Testing requirements
-
-- Every public function has a unit test
-- Property-based tests (`proptest`) for invariants
-- Coverage target: 80%+ on `polyref-core` and `polyref-checker-spi`
-- See [`docs/verification.md`](docs/verification.md) for the full gate matrix
+PR triggers: schemas validation → Rust build/test/clippy (MSRV matrix) → cargo-deny → schema drift check → security (dependency review).
 
 ## Key invariants (never violate)
 
@@ -100,15 +69,23 @@ bash scripts/verify-schemas.sh
 5. **ID validation**: All IDs parsed via `parse()` — no bypass
 6. **Deterministic**: Same inputs → byte-identical report
 
-## Adding a new correspondence kind or reason variant
+## Adding a new enum variant
 
-1. Add the variant to the JSON Schema in `polyref/schemas/`
+1. Add to JSON Schema in `schemas/`
 2. Bump `schemas/_meta/version.json`
-3. Add entry to `schemas/CHANGELOG.md`
-4. Add the Rust variant to the corresponding enum
-5. Run `bash scripts/schema-bindings-check.sh` to verify no drift
+3. Add to `schemas/CHANGELOG.md`
+4. Add Rust variant to the corresponding enum
+5. Run `bash scripts/schema-bindings-check.sh`
 6. Update tests
 
-## Questions?
+## Code style
 
-Read the docs in order: [`docs/overview.md`](docs/overview.md) → [`docs/architecture.md`](docs/architecture.md) → [`docs/build-plan.md`](docs/build-plan.md).
+- `unsafe` forbidden workspace-wide
+- `cargo clippy` warnings are errors
+- No `From<String>` on ID types
+- No wildcard `_` match on business enums
+- No `.unwrap()` in production code
+
+## Docs
+
+[`docs/overview.md`](docs/overview.md) → [`docs/architecture.md`](docs/architecture.md) → [`docs/build-plan.md`](docs/build-plan.md) → [`docs/verification.md`](docs/verification.md)
