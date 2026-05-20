@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/polyref-core",
     "crates/polyref-checker-spi",
+    "crates/polyref-graph",
 ]
 
 [workspace.package]
