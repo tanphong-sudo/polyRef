@@ -6,7 +6,7 @@
 crates/                                       (in-process Rust)
 ├── polyref-core           types, ids, status, evidence, observation, report — no I/O
 ├── polyref-checker-spi    JSON-RPC envelope + extractor / kind-checker SPI types
-├── polyref-graph          Repository graph, GraphStore, MigrationMap, ObservationRegistry      [Layer 2+]
+├── polyref-graph          Repository graph, GraphStore, MigrationMap, ObservationRegistry      [Layer 1+]
 ├── polyref-loader         Reproducible checkout + sandboxed apply(R, ρ)                         [Layer 2+]
 ├── polyref-frontier       ∂ρ(o) least-closure                                                   [Layer 5+]
 ├── polyref-engine         Algorithm A1 + A2                                                     [Layer 6+]

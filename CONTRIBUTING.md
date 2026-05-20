@@ -106,7 +106,7 @@ bash scripts/verify-schemas.sh
 2. Bump `schemas/_meta/version.json`
 3. Add entry to `schemas/CHANGELOG.md`
 4. Add the Rust variant to the corresponding enum
-5. Run `bash polyref/scripts/schema-bindings-check.sh` to verify no drift
+5. Run `bash scripts/schema-bindings-check.sh` to verify no drift
 6. Update tests
 
 ## Questions?

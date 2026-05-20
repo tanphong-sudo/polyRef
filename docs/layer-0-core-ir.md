@@ -41,10 +41,10 @@ polyref/
 ### IDs
 
 ```rust
-pub struct EntityId(String);
-pub struct ArtifactId(String);
-pub struct CorrId(String);
-pub struct EdgeId(String);
+pub struct EntityId { /* private: inner String + cached segment offsets */ }
+pub struct ArtifactId(/* private String */);
+pub struct CorrId(/* private String */);
+pub struct EdgeId(/* private String */);
 ```
 
 Each id is a newtype with a private inner string. Construction is via `parse(&str) -> Result<Self, IdParseError>` only; serde routes through `parse`.
@@ -290,12 +290,13 @@ The implementer turns each `#[ignore]`-marked test green by implementing the cor
 8. Compile-fail `trybuild` tests pass.
 9. `prop_no_accepted_with_missing_endpoint_unknown` passes a 4096-case CI run.
 
-## Open hard blockers (must close before Layer 1)
+## Status
 
-- **F-2** Final lex-sorted reason enum order — defaulted in `schemas/CHANGELOG.md`; confirm with project owner.
-- **F-5** RFC 8785 implementation source: write our own (audited) vs depend on `serde_jcs`.
-- **F-6** Confirm or override default hard caps (16 MiB payload, 64 JSON depth, 16 KiB id, 4 KiB path, 600 s deadline).
-- **F-7** Final EvidencePointer regex: skeleton ships `^evidence/[A-Za-z0-9_./-]{1,512}$`.
-- **F-8** Generated bindings strategy: hand-written + drift-check (current default) vs codegen.
+**Layer 0 is complete** (tagged `v0.1.0`). All parsers implemented, 69 tests green, CI green.
 
-Soft blockers (close before layer review): MSRV (currently 1.79), final license text (currently Apache-2.0 placeholder), `trybuild` budget, proptest case budget, `Visibility` immutability (currently immutable per ADR-010).
+Decisions closed during implementation:
+- **F-2**: Reason enum order is lexicographic ascending (shipped in schemas).
+- **F-5**: RFC 8785 implemented in-house (`canonical.rs`), no external dep.
+- **F-6**: Hard caps confirmed at defaults (16 MiB payload, 64 depth, 16 KiB id, 4 KiB path, 600 s deadline).
+- **F-7**: EvidencePointer regex confirmed: `^evidence/[A-Za-z0-9_./-]{1,512}$`.
+- **F-8**: Hand-written types + `scripts/schema-bindings-check.sh` drift check.

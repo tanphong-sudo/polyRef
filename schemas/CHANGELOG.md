@@ -33,4 +33,4 @@ Initial schema set:
 - `manifest.json` *(placeholder; expand in Layer 1)*
 
 Reason enum order is **lexicographic ascending of variant names** per
-hard blocker F-2 in `../claude/05-handoff-1-core-ir.md`.
+ADR-005.

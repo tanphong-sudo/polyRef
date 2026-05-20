@@ -37,7 +37,7 @@ Defines what "done" means at each layer of `build-plan.md`.
 - `prop_no_missing_endpoint_accepted` — for any random `(G, ρ, o)`, no item with `MissingEndpoint` is `Pres` or `Migrated`.
 - `prop_status_idempotent` — re-running A2 on already-validated items yields the same status.
 - `prop_frontier_closed_under_reachability` — every successor of a frontier item that lies on a path to `supp(o)` is also in the frontier.
-- `prop_migration_map_type_respecting` — only kind-matching maps survive `MigrationMap::tryNew`.
+- `prop_migration_map_type_respecting` — only kind-matching maps survive `MigrationMap::try_new`.
 - `prop_replay_byte_identical` — any run replayed from cache produces the same report bytes.
 
 ### Integration
