@@ -15,12 +15,20 @@ gpt.md missing decision (7): concrete JSON schemas. Also: no decision on where g
 │   ├── repo-old.sqlite                          # GraphStore for R
 │   ├── repo-new.sqlite                          # GraphStore for R'
 │   ├── audit.ndjson                             # append-only event log
-│   ├── evidence/                                # per-call raw logs from plugins
+│   ├── evidence/                                # evidence pointers + per-call raw logs from plugins
+│   │   └── manifest.json                        # schema-valid mirror for report audit_pointers
 │   ├── report.json                              # canonical machine-readable report
 │   ├── report.md                                # human-readable rendering
-│   └── manifest.json                            # versions, hashes, env capture
+│   └── manifest.json                            # canonical versions, hashes, env capture
 └── schemas/                                     # frozen JSON Schemas under semver
 ```
+
+`runs/<report_id>/manifest.json` is the canonical run manifest for operators
+and replay. The report schema models `audit_pointers.manifest_json` as an
+`EvidencePointer`, so the ReportStore also writes a byte-identical mirror at
+`runs/<report_id>/evidence/manifest.json`. Layer 2 may expand the manifest
+contents, but it must preserve this report-schema compatibility unless the
+report schema is versioned.
 
 ### GraphStore (SQLite) tables
 - `artifact(artifact_id PK, repo_side, path, language, kind, content_hash, generated)`

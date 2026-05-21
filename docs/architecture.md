@@ -77,7 +77,7 @@ Host enforcement:
 | GraphStore | SQLite (one file per repo: `repo-old.sqlite`, `repo-new.sqlite`) | Entities, correspondences, build edges, observations |
 | ArtifactStore | content-addressed filesystem (`cache/blobs/sha256/…`) | Memoize extractor outputs; store evidence blobs |
 | AuditLog | NDJSON, append-only per run | Every stage transition |
-| ReportStore | One directory per `report_id` with `report.json`, `report.md`, `evidence/*.log`, `manifest.json` | Replayable report artifacts |
+| ReportStore | One directory per `report_id` with `report.json`, `report.md`, `audit.ndjson`, `manifest.json`, `evidence/*`, and a mirrored `evidence/manifest.json` for report-schema pointers | Replayable report artifacts |
 
 Memoization keys:
 - Extractor: `H(content_hash, extractor_id, extractor_version, options)`.
