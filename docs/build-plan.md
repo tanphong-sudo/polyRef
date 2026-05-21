@@ -42,6 +42,8 @@ Status: **complete** (v0.1.0). All parsers implemented, 69 tests green, CI green
 
 Acceptance: round-trip 10 k entities + correspondences; replay reads NDJSON back into typed events; cache hit/miss counters wired.
 
+Status: **complete**. `polyref-graph` now includes SQLite GraphStore, content-addressed BlobStore, NDJSON AuditLog, and ReportStore run layout. Layer 1 quality gate passes locally with `RUSTFLAGS="-D warnings"`.
+
 ## Layer 2 — Loader + sandbox
 
 | File | Purpose |
