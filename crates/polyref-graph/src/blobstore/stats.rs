@@ -47,10 +47,6 @@ impl Default for CacheStats {
 
 /// Internal atomic counters owned by the store. Not part of the
 /// public API.
-//
-// `dead_code` is allowed for now because `FsBlobStore` (the only
-// in-tree consumer) lands in a follow-up commit on this branch.
-// Once the impl is wired, the allow goes away.
 #[derive(Debug, Default)]
 pub(crate) struct AtomicCacheStats {
     pub(crate) hits: AtomicU64,
@@ -58,7 +54,6 @@ pub(crate) struct AtomicCacheStats {
     pub(crate) blobs_written: AtomicU64,
 }
 
-#[allow(dead_code)]
 impl AtomicCacheStats {
     pub(crate) fn snapshot(&self) -> CacheStats {
         // `Relaxed` is sufficient: counters are advisory and not used

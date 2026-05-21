@@ -33,9 +33,11 @@
 //!   reader observing a path either sees the full content or no file.
 //! - No `unsafe`. Workspace-wide `#![forbid(unsafe_code)]`.
 
+mod fs;
 mod key;
 mod stats;
 
+pub use fs::FsBlobStore;
 pub use key::{BlobKey, BlobKeyError};
 pub use stats::CacheStats;
 
