@@ -29,6 +29,7 @@
 #![warn(missing_docs)]
 
 pub mod audit;
+pub mod blobstore;
 pub mod error;
 pub mod model;
 pub mod store;
@@ -37,6 +38,10 @@ mod tags;
 pub use audit::{
     AuditEvent, AuditEventError, AuditEventTag, AuditEventTagParseError, AuditReadError,
     AuditReader, AuditWriteError, AuditWriter, AUDIT_LINE_MAX_BYTES,
+};
+pub use blobstore::{
+    checker_memo_key, extractor_memo_key, BlobKey, BlobKeyError, BlobStore, BlobStoreError,
+    CacheStats, FsBlobStore,
 };
 pub use error::GraphStoreError;
 pub use model::{Artifact, BuildEdge, Correspondence, Entity};
