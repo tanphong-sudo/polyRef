@@ -18,10 +18,7 @@ allow = [
     "Apache-2.0 WITH LLVM-exception",
     "MIT",
     "BSD-2-Clause",
-    "BSD-3-Clause",
-    "ISC",
     "Unicode-3.0",
-    "Unicode-DFS-2016",
     "Zlib",
 ]
 exceptions = []
@@ -30,6 +27,9 @@ exceptions = []
 multiple-versions = "warn"
 wildcards = "deny"
 highlight = "all"
+skip = [
+    { name = "windows-sys" },
+]
 
 [sources]
 unknown-registry = "deny"
