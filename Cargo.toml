@@ -4,6 +4,7 @@ members = [
     "crates/polyref-core",
     "crates/polyref-checker-spi",
     "crates/polyref-graph",
+    "crates/polyref-loader",
 ]
 
 [workspace.package]

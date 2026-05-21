@@ -278,6 +278,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "polyref-loader"
+version = "0.1.0"
+dependencies = [
+ "polyref-core",
+ "polyref-graph",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
 name = "ppv-lite86"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"

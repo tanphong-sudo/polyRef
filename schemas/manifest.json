@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "polyref://schemas/manifest.json",
   "title": "RunManifest",
-  "description": "Placeholder for Slice 1; expanded in Slice 2 by polyref-loader.",
+  "description": "Layer 2 run manifest placeholder expanded by polyref-loader; remains open for later loader/sandbox/replay metadata.",
   "type": "object",
   "required": [
     "report_id",
