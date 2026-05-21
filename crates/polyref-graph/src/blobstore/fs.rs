@@ -98,24 +98,28 @@ impl BlobStore for FsBlobStore {
         let shard = self.shard_dir(&key);
         fs::create_dir_all(&shard)?;
 
-        // Write to a temp file in the SAME directory so the rename is
-        // same-filesystem (POSIX atomic). `tempfile` cleans up the
-        // file on drop if `persist` is not called.
+        // Write to a temp file in the SAME directory so the rename
+        // is same-filesystem (POSIX atomic). `persist_noclobber`
+        // refuses to overwrite an existing file, so a concurrent
+        // writer that won the race blocks our `record_write` —
+        // exactly the dedup semantics we want.
         let mut tmp = NamedTempFile::new_in(&shard)?;
         tmp.write_all(content)?;
         tmp.flush()?;
 
-        // `persist` returns an error wrapper; collapse to plain io.
-        match tmp.persist(&target) {
+        match tmp.persist_noclobber(&target) {
             Ok(_) => {
                 self.stats.record_write();
                 Ok(key)
             }
             Err(persist_err) => {
-                // If another writer raced us to the same path, the
-                // file already exists — that's fine; we still return
-                // the key, no double-count.
-                if target.exists() {
+                // Two cases:
+                // 1. Target already exists (we lost the race) — that's
+                //    the point; same content under a content-addressed
+                //    key means the file IS what we wanted.
+                // 2. Some other I/O error.
+                if persist_err.error.kind() == std::io::ErrorKind::AlreadyExists || target.exists()
+                {
                     Ok(key)
                 } else {
                     Err(BlobStoreError::Io(persist_err.error))
