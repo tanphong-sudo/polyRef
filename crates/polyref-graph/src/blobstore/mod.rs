@@ -35,10 +35,12 @@
 
 mod fs;
 mod key;
+mod memo;
 mod stats;
 
 pub use fs::FsBlobStore;
 pub use key::{BlobKey, BlobKeyError};
+pub use memo::{checker_memo_key, extractor_memo_key};
 pub use stats::CacheStats;
 
 use thiserror::Error;
