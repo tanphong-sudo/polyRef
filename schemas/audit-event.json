@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "polyref://schemas/audit-event.json",
   "title": "AuditEvent",
-  "description": "Single line of an append-only NDJSON audit log per ADR-006. The 14 closed event tags cover every stage transition the engine emits. The `tag` enum is the source of truth; consumers (Rust host, plugin workers, eval harness, replay verifier) MUST treat any unknown value as a hard error per ADR-005 closed-enum policy.",
+  "description": "Single line of an append-only NDJSON audit log per ADR-006. The closed event tags cover every stage transition the engine emits. The `tag` enum is the source of truth; consumers (Rust host, plugin workers, eval harness, replay verifier) MUST treat any unknown value as a hard error per ADR-005 closed-enum policy.",
   "type": "object",
   "required": [
     "ts",
@@ -48,7 +48,10 @@
         "observation_rewritten",
         "observation_status_assigned",
         "report_finalized",
-        "repo_loaded"
+        "repo_loaded",
+        "replay_completed",
+        "sandbox_denied",
+        "sandbox_started"
       ]
     },
     "actor": {
