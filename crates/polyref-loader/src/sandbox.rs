@@ -249,12 +249,16 @@ impl SandboxMount {
         })
     }
 
-    fn backend_spec(&self) -> String {
+    fn oci_volume_spec(&self) -> String {
         let access = match self.access {
             MountAccess::ReadOnly => "ro",
             MountAccess::ReadWrite => "rw",
         };
         format!("{}:{}:{access}", self.source.display(), self.target)
+    }
+
+    fn nsjail_bind_spec(&self) -> String {
+        format!("{}:{}", self.source.display(), self.target)
     }
 }
 
@@ -373,6 +377,12 @@ impl BackendCommandBuilder {
         if profile.network_allowed {
             return Err(SandboxError::Denied("network must be disabled".to_owned()));
         }
+        if profile.backend != self.backend {
+            return Err(SandboxError::Denied(format!(
+                "profile backend {:?} does not match builder backend {:?}",
+                profile.backend, self.backend
+            )));
+        }
         match self.backend {
             SandboxBackend::Docker => Ok(build_oci("docker", profile, command)),
             SandboxBackend::Podman => Ok(build_oci("podman", profile, command)),
@@ -391,18 +401,24 @@ fn build_oci(
         "run".to_owned(),
         "--rm".to_owned(),
         "--network=none".to_owned(),
+        "--cpus".to_owned(),
+        "1".to_owned(),
         "--memory".to_owned(),
         profile.limits.memory_bytes.to_string(),
+        "--tmpfs".to_owned(),
+        format!("/tmp:size={}", profile.limits.tmpfs_bytes),
     ];
     for mount in &profile.mounts {
         args.push("--volume".to_owned());
-        args.push(mount.backend_spec());
+        args.push(mount.oci_volume_spec());
     }
     for key in &profile.env_keys {
         args.push("--env".to_owned());
         args.push(key.clone());
     }
     args.push("polyref-sandbox-runner".to_owned());
+    args.push("--timeout-ms".to_owned());
+    args.push(profile.limits.wallclock_ms.to_string());
     args.push(command.program().to_owned());
     args.extend(command.args().iter().cloned());
     BackendCommand {
@@ -418,6 +434,10 @@ fn build_nsjail(profile: &SandboxProfileSpec, command: &SandboxCommand) -> Backe
         profile.limits.cpu_seconds.to_string(),
         "--rlimit_as".to_owned(),
         profile.limits.memory_bytes.to_string(),
+        "--rlimit_fsize".to_owned(),
+        profile.limits.tmpfs_bytes.to_string(),
+        "--time_limit".to_owned(),
+        profile.limits.wallclock_ms.div_ceil(1000).to_string(),
     ];
     for mount in &profile.mounts {
         let flag = match mount.access {
@@ -425,7 +445,7 @@ fn build_nsjail(profile: &SandboxProfileSpec, command: &SandboxCommand) -> Backe
             MountAccess::ReadWrite => "--bindmount",
         };
         args.push(flag.to_owned());
-        args.push(mount.backend_spec());
+        args.push(mount.nsjail_bind_spec());
     }
     args.push("--".to_owned());
     args.push(command.program().to_owned());
@@ -453,7 +473,13 @@ fn validate_host_source(path: &Path) -> Result<PathBuf, SandboxError> {
     if !metadata.is_dir() && !metadata.is_file() {
         return Err(SandboxError::UnsafePath(path.display().to_string()));
     }
-    path.canonicalize().map_err(SandboxError::Io)
+    let canonicalized = path.canonicalize().map_err(SandboxError::Io)?;
+    if canonicalized.to_str().is_none() {
+        return Err(SandboxError::UnsafePath(
+            canonicalized.display().to_string(),
+        ));
+    }
+    Ok(canonicalized)
 }
 
 fn validate_sandbox_target(target: &str) -> Result<String, SandboxError> {
