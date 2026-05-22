@@ -17,6 +17,5 @@ polyref-core = { path = "../polyref-core", version = "0.1.0" }
 polyref-graph = { path = "../polyref-graph", version = "0.1.0" }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sha2 = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
