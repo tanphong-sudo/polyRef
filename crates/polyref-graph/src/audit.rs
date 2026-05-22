@@ -782,23 +782,11 @@ impl<R: BufRead> Iterator for AuditReader<R> {
                 let nl = buf.iter().position(|&b| b == b'\n');
                 let take = nl.map_or(buf.len(), |i| i + 1);
                 if total + take > AUDIT_LINE_MAX_BYTES {
-                    let has_newline = nl.is_some();
+                    let needs_drain = nl.is_none();
                     self.inner.consume(take);
-                    if !has_newline {
-                        loop {
-                            let buf = match self.inner.fill_buf() {
-                                Ok(b) => b,
-                                Err(e) => return Some(Err(AuditReadError::Io(e))),
-                            };
-                            if buf.is_empty() {
-                                break;
-                            }
-                            let nl = buf.iter().position(|&b| b == b'\n');
-                            let take = nl.map_or(buf.len(), |i| i + 1);
-                            self.inner.consume(take);
-                            if nl.is_some() {
-                                break;
-                            }
+                    if needs_drain {
+                        if let Err(error) = self.drain_to_next_line() {
+                            return Some(Err(AuditReadError::Io(error)));
                         }
                     }
                     return Some(Err(AuditReadError::LineTooLong {
@@ -812,7 +800,13 @@ impl<R: BufRead> Iterator for AuditReader<R> {
                     Err(_) => {
                         // Consume the rest of the line so the iterator
                         // can advance past the corruption.
+                        let needs_drain = nl.is_none();
                         self.inner.consume(take);
+                        if needs_drain {
+                            if let Err(error) = self.drain_to_next_line() {
+                                return Some(Err(AuditReadError::Io(error)));
+                            }
+                        }
                         return Some(Err(
                             self.synth_bad_json("line is not valid UTF-8".to_owned())
                         ));
@@ -845,6 +839,21 @@ impl<R: BufRead> Iterator for AuditReader<R> {
 }
 
 impl<R: BufRead> AuditReader<R> {
+    fn drain_to_next_line(&mut self) -> std::io::Result<()> {
+        loop {
+            let buf = self.inner.fill_buf()?;
+            if buf.is_empty() {
+                return Ok(());
+            }
+            let nl = buf.iter().position(|&b| b == b'\n');
+            let take = nl.map_or(buf.len(), |i| i + 1);
+            self.inner.consume(take);
+            if nl.is_some() {
+                return Ok(());
+            }
+        }
+    }
+
     fn parse_line(&self, line: &str) -> Result<AuditEvent, AuditReadError> {
         let event: AuditEvent =
             serde_json::from_str(line).map_err(|e| AuditReadError::BadJson {
@@ -989,6 +998,28 @@ mod reader_tests {
         let err = r.next().unwrap().unwrap_err();
         assert!(
             matches!(err, AuditReadError::LineTooLong { line_no: 1 }),
+            "got {err:?}"
+        );
+
+        let event = r.next().unwrap().unwrap();
+        assert_eq!(event.tag, AuditEventTag::RepoLoaded);
+        assert!(r.next().is_none());
+    }
+
+    #[test]
+    fn reader_recovers_after_multichunk_non_utf8_line() {
+        let valid = serde_json::to_string(&sample_event(AuditEventTag::RepoLoaded, b'a')).unwrap();
+        let mut payload = vec![b'a'; 32];
+        payload[3] = 0xff;
+        payload.extend_from_slice(b"\n");
+        payload.extend_from_slice(valid.as_bytes());
+        payload.extend_from_slice(b"\n");
+        let cursor = Cursor::new(payload);
+        let mut r = AuditReader::new(BufReader::with_capacity(8, cursor));
+
+        let err = r.next().unwrap().unwrap_err();
+        assert!(
+            matches!(err, AuditReadError::BadJson { line_no: 1, .. }),
             "got {err:?}"
         );
 
