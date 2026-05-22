@@ -17,7 +17,7 @@
 //!
 //! # Closed tag set
 //!
-//! The 14 members of [`AuditEventTag`] mirror
+//! The members of [`AuditEventTag`] mirror
 //! `schemas/audit-event.json` (schema package version 0.2.0). The
 //! `as_tag()` / `parse()` helpers live on the enum itself so consumer
 //! crates never need a wildcard `_ =>` arm on the `#[non_exhaustive]`
@@ -73,6 +73,12 @@ pub enum AuditEventTag {
     ReportFinalized,
     /// Repository checkout (R or R') is on disk and ready.
     RepoLoaded,
+    /// Candidate patch replay completed successfully.
+    ReplayCompleted,
+    /// Sandbox denied or failed a replay/plugin operation.
+    SandboxDenied,
+    /// Sandbox replay/plugin operation started.
+    SandboxStarted,
 }
 
 /// Failure to parse the snake-case tag string of an
@@ -101,6 +107,9 @@ impl AuditEventTag {
             AuditEventTag::ObservationStatusAssigned => "observation_status_assigned",
             AuditEventTag::ReportFinalized => "report_finalized",
             AuditEventTag::RepoLoaded => "repo_loaded",
+            AuditEventTag::ReplayCompleted => "replay_completed",
+            AuditEventTag::SandboxDenied => "sandbox_denied",
+            AuditEventTag::SandboxStarted => "sandbox_started",
         }
     }
 
@@ -110,7 +119,7 @@ impl AuditEventTag {
     /// # Errors
     ///
     /// Returns [`AuditEventTagParseError`] when `s` is not one of the
-    /// 14 closed members.
+    /// closed members.
     pub fn parse(s: &str) -> Result<Self, AuditEventTagParseError> {
         match s {
             "artifact_classified" => Ok(AuditEventTag::ArtifactClassified),
@@ -127,6 +136,9 @@ impl AuditEventTag {
             "observation_status_assigned" => Ok(AuditEventTag::ObservationStatusAssigned),
             "report_finalized" => Ok(AuditEventTag::ReportFinalized),
             "repo_loaded" => Ok(AuditEventTag::RepoLoaded),
+            "replay_completed" => Ok(AuditEventTag::ReplayCompleted),
+            "sandbox_denied" => Ok(AuditEventTag::SandboxDenied),
+            "sandbox_started" => Ok(AuditEventTag::SandboxStarted),
             other => Err(AuditEventTagParseError(other.to_owned())),
         }
     }
@@ -292,8 +304,11 @@ mod tests {
             AuditEventTag::ObservationStatusAssigned,
             AuditEventTag::ReportFinalized,
             AuditEventTag::RepoLoaded,
+            AuditEventTag::ReplayCompleted,
+            AuditEventTag::SandboxDenied,
+            AuditEventTag::SandboxStarted,
         ];
-        assert_eq!(all.len(), 14);
+        assert_eq!(all.len(), 17);
         for tag in all {
             assert_eq!(AuditEventTag::parse(tag.as_tag()).unwrap(), tag);
         }
