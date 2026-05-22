@@ -53,8 +53,11 @@ for replay verification:
 - `obligation_emitted`
 - `observation_rewritten`
 - `observation_status_assigned`
-- `report_finalized`
+- `replay_completed`
 - `repo_loaded`
+- `report_finalized`
+- `sandbox_denied`
+- `sandbox_started`
 
 Tag enum order is **lexicographic ascending of variant names** per
 ADR-005 (hard blocker F-2).

@@ -47,9 +47,9 @@
         "obligation_emitted",
         "observation_rewritten",
         "observation_status_assigned",
-        "report_finalized",
-        "repo_loaded",
         "replay_completed",
+        "repo_loaded",
+        "report_finalized",
         "sandbox_denied",
         "sandbox_started"
       ]

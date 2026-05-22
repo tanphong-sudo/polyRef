@@ -46,6 +46,14 @@ pub enum GraphStoreError {
         value: String,
     },
 
+    /// A collection index could not be represented in the SQLite
+    /// integer domain without loss.
+    #[error("graph store position {position} overflows sqlite integer range")]
+    PositionOverflow {
+        /// Collection position that overflowed.
+        position: usize,
+    },
+
     /// The connection mutex was poisoned by a panic in another thread
     /// while it held the lock. Per `std::sync::Mutex` semantics the
     /// connection is in an unknown state; recovery requires a fresh
