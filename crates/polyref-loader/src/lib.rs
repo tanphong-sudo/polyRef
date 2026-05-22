@@ -5,4 +5,5 @@
 
 pub mod checkout;
 pub mod manifest;
+pub mod replay;
 pub mod sandbox;
