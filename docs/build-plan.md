@@ -46,14 +46,22 @@ Status: **complete**. `polyref-graph` now includes SQLite GraphStore, content-ad
 
 ## Layer 2 — Loader + sandbox
 
+Status: complete as of `polyref-loader` library support. Layer 2 exposes
+Rust helper APIs (`replay_patch` / `load_repo_with_patch`) for loading a
+local repo and patch into sandboxed old/new workspaces. The end-to-end
+`polyref load <repo> <patch>` CLI remains Layer 8 scope.
+
 | File | Purpose |
 | --- | --- |
 | `crates/polyref-loader/src/checkout.rs` | Reproducible repo + commit checkout |
-| `crates/polyref-loader/src/sandbox.rs` | nsjail / Docker abstraction |
+| `crates/polyref-loader/src/sandbox.rs` | backend-neutral sandbox abstraction and no-network command builders |
 | `crates/polyref-loader/src/replay.rs` | Apply candidate ρ inside sandbox |
 | `crates/polyref-loader/src/manifest.rs` | `.polyref/runs/<id>/manifest.json` |
 
-Acceptance: `polyref load <repo> <patch>` produces R and R' under sandbox with no host network access.
+Acceptance: `load_repo_with_patch(...)` produces R and R' under a sandbox
+abstraction with no host-side patch fallback. Negative replay attempts are
+denied and logged; mapping denials to final `Unknown` statuses is handled by
+later engine/checker layers.
 
 ## Layer 3 — Plugin host
 
