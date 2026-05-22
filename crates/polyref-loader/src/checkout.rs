@@ -118,7 +118,11 @@ fn canonical_source(source: &Path) -> Result<PathBuf, CheckoutError> {
     if !source.is_dir() {
         return Err(CheckoutError::RepoNotFound(source.display().to_string()));
     }
-    source.canonicalize().map_err(CheckoutError::Io)
+    let source = source.canonicalize().map_err(CheckoutError::Io)?;
+    if source.to_str().is_none() {
+        return Err(CheckoutError::UnsafePath(source.display().to_string()));
+    }
+    Ok(source)
 }
 
 fn copy_tree(
@@ -163,6 +167,13 @@ fn should_exclude(name: &OsStr) -> bool {
         name.to_str(),
         Some(".git" | ".polyref" | "target" | ".cache" | "node_modules")
     )
+}
+
+fn should_exclude_relative(path: &Path) -> bool {
+    path.components().any(|component| match component {
+        Component::Normal(name) => should_exclude(name),
+        _ => false,
+    })
 }
 
 fn safe_relative(root: &Path, path: &Path) -> Result<PathBuf, CheckoutError> {
@@ -284,6 +295,9 @@ fn export_commit_tree(
             .ok_or_else(|| CheckoutError::Git("missing git object id".to_owned()))?;
         let relative = path_from_git_bytes(path)?;
         validate_relative(&relative)?;
+        if should_exclude_relative(&relative) {
+            continue;
+        }
         if mode == "120000" || kind == "commit" {
             return Err(CheckoutError::SymlinkEscape(path_to_utf8(&relative)?));
         }
@@ -359,6 +373,11 @@ fn working_tree_id(files: &[String], workspace: &Path) -> Result<String, Checkou
 
 fn repo_id(source: &Path) -> String {
     let mut hasher = Sha256::new();
-    hasher.update(source.to_string_lossy().as_bytes());
+    hasher.update(
+        source
+            .to_str()
+            .expect("canonical_source rejects non-UTF-8 source paths")
+            .as_bytes(),
+    );
     format!("local:{:x}", hasher.finalize())
 }

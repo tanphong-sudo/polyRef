@@ -67,6 +67,34 @@ fn exact_commit_resolves_without_network() {
 }
 
 #[test]
+fn commit_checkout_excludes_tracked_cache_dirs() {
+    let repo = sample_repo();
+    write_file(repo.path().join("README.md"), "kept\n");
+    write_file(repo.path().join(".polyref/runs/report.json"), "ignored\n");
+    write_file(repo.path().join("target/debug/cache"), "ignored\n");
+    write_file(repo.path().join(".cache/tool/cache"), "ignored\n");
+    write_file(repo.path().join("node_modules/pkg/index.js"), "ignored\n");
+    git(&repo, ["add", "."]);
+    git(&repo, ["commit", "-m", "initial"]);
+    let commit = git_stdout(&repo, ["rev-parse", "HEAD"]);
+    let run = run_store("report-1");
+
+    let result = checkout_old_workspace(
+        CheckoutPlan::new(RepoSource::LocalPath(repo.path().to_path_buf()), CommitRef::Head),
+        &run,
+    )
+    .unwrap();
+
+    assert_eq!(result.commit, commit);
+    assert_eq!(result.files, vec!["README.md"]);
+    assert!(run.path().join("workspace/old/README.md").exists());
+    assert!(!run.path().join("workspace/old/.polyref").exists());
+    assert!(!run.path().join("workspace/old/target").exists());
+    assert!(!run.path().join("workspace/old/.cache").exists());
+    assert!(!run.path().join("workspace/old/node_modules").exists());
+}
+
+#[test]
 fn exact_commit_ignores_dirty_working_tree() {
     let repo = sample_repo();
     write_file(repo.path().join("a.txt"), "committed\n");
@@ -189,6 +217,28 @@ fn rejects_symlink_escape() {
     .unwrap_err();
 
     assert!(matches!(err, CheckoutError::SymlinkEscape(_)));
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+#[test]
+fn rejects_non_utf8_source_path() {
+    use std::ffi::OsString;
+    use std::os::unix::ffi::OsStringExt;
+
+    let parent = tempfile::tempdir().unwrap();
+    let source = parent
+        .path()
+        .join(PathBuf::from(OsString::from_vec(vec![b'r', 0xff])));
+    fs::create_dir_all(&source).unwrap();
+    let run = run_store("report-1");
+
+    let err = checkout_old_workspace(
+        CheckoutPlan::new(RepoSource::LocalPath(source), CommitRef::WorkingTreeSnapshot),
+        &run,
+    )
+    .unwrap_err();
+
+    assert!(matches!(err, CheckoutError::UnsafePath(_)));
 }
 
 fn run_store(report_id: &str) -> polyref_graph::RunReportStore {
