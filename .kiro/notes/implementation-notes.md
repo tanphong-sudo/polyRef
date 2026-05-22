@@ -185,3 +185,26 @@ prevention and deterministic workspace contents.
 **Follow-up**: If subject repos require symlinks, add a dedicated symlink policy
 that records link targets in the manifest/audit log and rejects absolute or
 escaping targets before materialization.
+
+---
+
+## 2026-05-22 — Layer 2 / `feat/loader-sandbox`
+
+### N-15. Sandbox branch builds validated profiles, not process execution
+
+Layer 2 sandbox v1 intentionally stops at backend-neutral profile validation
+and backend command construction. It does not launch Docker/Podman/nsjail or
+`sandbox-exec`, so unit tests do not require privileged host setup or installed
+sandbox backends. `UnavailableSandbox` returns typed `MissingBackend` for
+execution paths until replay owns real process launch.
+
+This follows the branch plan but is narrower than ADR-009's full runtime
+sandbox. The full no-network denial tests (`curl`, `/etc/passwd`, root writes`)
+remain for `feat/loader-replay` once patch execution exists.
+
+### N-16. macOS cannot reliably create arbitrary non-UTF-8 path fixtures
+
+The non-UTF-8 mount-source regression is Linux-gated. macOS commonly rejects
+illegal byte sequences at filesystem creation time, so the test cannot portably
+construct the fixture there. The production validator still rejects non-UTF-8
+paths when Rust exposes such paths.
