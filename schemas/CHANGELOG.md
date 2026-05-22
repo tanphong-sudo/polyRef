@@ -37,7 +37,7 @@ ADR-005.
 
 ## 0.2.0 — Layer 1 audit log
 
-`audit-event.json` no longer a placeholder. Closed `tag` enum (14
+`audit-event.json` no longer a placeholder. Closed `tag` enum (17
 members per ADR-006) plus required `actor` and `payload_hash` fields
 for replay verification:
 
