@@ -164,8 +164,8 @@ pub fn replay_patch<S: Sandbox>(
     sandbox: &S,
 ) -> Result<ReplayResult, ReplayError> {
     validate_report_id_match(&plan.report_id, run)?;
-    let timestamp = plan
-        .created_at
+    let created_at = plan.created_at.clone();
+    let timestamp = created_at
         .clone()
         .unwrap_or_else(|| "1970-01-01T00:00:00Z".to_owned());
 
@@ -248,7 +248,7 @@ pub fn replay_patch<S: Sandbox>(
     manifest.patch_hash = Some(patch_hash.clone());
     manifest.patch_path = Some(patch_path.clone());
     manifest.sandbox = Some(sandbox_profile.clone());
-    manifest.created_at = Some(timestamp.clone());
+    manifest.created_at = created_at;
     manifest.write_to_report_store(run)?;
 
     append_audit(

@@ -73,6 +73,34 @@ fn replay_applies_patch_to_new_workspace_and_preserves_old_workspace() {
 }
 
 #[test]
+fn replay_without_created_at_does_not_write_fake_manifest_timestamp() {
+    let repo = sample_repo();
+    write_file(repo.path().join("README.md"), "old\n");
+    git(&repo, ["add", "README.md"]);
+    git(&repo, ["commit", "-m", "initial"]);
+    let run = TestRun::new("report-1");
+
+    replay_patch(
+        ReplayPlan::new(
+            "report-1",
+            CheckoutPlan::new(
+                RepoSource::LocalPath(repo.path().to_path_buf()),
+                CommitRef::Head,
+            ),
+            PatchInput::Bytes(patch_for_readme("old", "new").into_bytes()),
+            SandboxBackend::Unavailable,
+        ),
+        &run,
+        &PatchApplyingSandbox,
+    )
+    .unwrap();
+
+    let manifest: RunManifest =
+        serde_json::from_slice(&fs::read(run.path().join("manifest.json")).unwrap()).unwrap();
+    assert_eq!(manifest.created_at, None);
+}
+
+#[test]
 fn invalid_patch_returns_typed_error_and_preserves_old_workspace() {
     let repo = sample_repo();
     write_file(repo.path().join("README.md"), "old\n");
