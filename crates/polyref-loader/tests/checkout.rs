@@ -80,7 +80,10 @@ fn commit_checkout_excludes_tracked_cache_dirs() {
     let run = run_store("report-1");
 
     let result = checkout_old_workspace(
-        CheckoutPlan::new(RepoSource::LocalPath(repo.path().to_path_buf()), CommitRef::Head),
+        CheckoutPlan::new(
+            RepoSource::LocalPath(repo.path().to_path_buf()),
+            CommitRef::Head,
+        ),
         &run,
     )
     .unwrap();
@@ -233,7 +236,10 @@ fn rejects_non_utf8_source_path() {
     let run = run_store("report-1");
 
     let err = checkout_old_workspace(
-        CheckoutPlan::new(RepoSource::LocalPath(source), CommitRef::WorkingTreeSnapshot),
+        CheckoutPlan::new(
+            RepoSource::LocalPath(source),
+            CommitRef::WorkingTreeSnapshot,
+        ),
         &run,
     )
     .unwrap_err();
