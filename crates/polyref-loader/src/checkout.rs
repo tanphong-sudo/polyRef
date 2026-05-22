@@ -101,7 +101,7 @@ pub fn checkout_old_workspace(
     fs::create_dir_all(&workspace)?;
 
     let (commit, files) = materialize_checkout(&source, &plan.commit, &workspace)?;
-    let repo_id = repo_id(&source);
+    let repo_id = repo_id(&source)?;
 
     Ok(CheckoutResult {
         repo_id,
@@ -371,13 +371,11 @@ fn working_tree_id(files: &[String], workspace: &Path) -> Result<String, Checkou
     Ok(format!("working-tree:{:x}", hasher.finalize()))
 }
 
-fn repo_id(source: &Path) -> String {
+fn repo_id(source: &Path) -> Result<String, CheckoutError> {
     let mut hasher = Sha256::new();
-    hasher.update(
-        source
-            .to_str()
-            .expect("canonical_source rejects non-UTF-8 source paths")
-            .as_bytes(),
-    );
-    format!("local:{:x}", hasher.finalize())
+    let source = source
+        .to_str()
+        .ok_or_else(|| CheckoutError::UnsafePath(source.display().to_string()))?;
+    hasher.update(source.as_bytes());
+    Ok(format!("local:{:x}", hasher.finalize()))
 }
