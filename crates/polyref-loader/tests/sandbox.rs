@@ -25,30 +25,55 @@ fn default_profile_matches_adr_009_limits_and_denies_network() {
 
 #[test]
 fn docker_podman_and_nsjail_builders_include_no_network_controls() {
-    let run = run_store("report-1");
+    let run = TestRun::new("report-1");
     let source = temp_dir_with_file("src.txt");
     fs::create_dir_all(run.path().join("scratch")).unwrap();
-    let profile = SandboxProfileSpec::default_no_network(SandboxBackend::Docker)
-        .with_mount(SandboxMount::read_only(source.path(), "/src").unwrap())
-        .with_mount(SandboxMount::read_write(run.path().join("scratch"), "/work", &run).unwrap());
+    let docker_profile = profile_with_mounts(SandboxBackend::Docker, source.path(), &run);
+    let podman_profile = profile_with_mounts(SandboxBackend::Podman, source.path(), &run);
+    let nsjail_profile = profile_with_mounts(SandboxBackend::Nsjail, source.path(), &run);
     let command = SandboxCommand::new("true");
 
     let docker = BackendCommandBuilder::docker()
-        .build(&profile, &command)
+        .build(&docker_profile, &command)
         .unwrap();
     let podman = BackendCommandBuilder::podman()
-        .build(&profile, &command)
+        .build(&podman_profile, &command)
         .unwrap();
     let nsjail = BackendCommandBuilder::nsjail()
-        .build(&profile, &command)
+        .build(&nsjail_profile, &command)
         .unwrap();
 
     assert!(docker.args.contains(&"--network=none".to_owned()));
     assert!(docker.args.iter().any(|arg| arg.contains(":ro")));
+    assert!(docker.args.contains(&"--cpus".to_owned()));
+    assert!(docker.args.contains(&"--memory".to_owned()));
+    assert!(docker.args.contains(&"--tmpfs".to_owned()));
     assert!(podman.args.contains(&"--network=none".to_owned()));
     assert!(podman.args.iter().any(|arg| arg.contains(":ro")));
+    assert!(podman.args.contains(&"--cpus".to_owned()));
+    assert!(podman.args.contains(&"--memory".to_owned()));
+    assert!(podman.args.contains(&"--tmpfs".to_owned()));
     assert!(nsjail.args.contains(&"--disable_clone_newnet".to_owned()));
-    assert!(nsjail.args.iter().any(|arg| arg.contains(":ro")));
+    assert!(nsjail.args.contains(&"--rlimit_cpu".to_owned()));
+    assert!(nsjail.args.contains(&"--rlimit_as".to_owned()));
+    assert!(nsjail.args.contains(&"--rlimit_fsize".to_owned()));
+    let ro_index = nsjail
+        .args
+        .iter()
+        .position(|arg| arg == "--bindmount_ro")
+        .unwrap();
+    assert!(nsjail.args[ro_index + 1].contains(":/src"));
+    assert!(!nsjail.args[ro_index + 1].ends_with(":ro"));
+}
+
+#[test]
+fn backend_builder_rejects_profile_backend_mismatch() {
+    let profile = SandboxProfileSpec::default_no_network(SandboxBackend::Docker);
+    let err = BackendCommandBuilder::nsjail()
+        .build(&profile, &SandboxCommand::new("true"))
+        .unwrap_err();
+
+    assert!(matches!(err, SandboxError::Denied(_)));
 }
 
 #[test]
@@ -69,7 +94,7 @@ fn env_redaction_exposes_keys_but_never_values() {
 
 #[test]
 fn write_mount_outside_run_root_is_rejected_before_launch() {
-    let run = run_store("report-1");
+    let run = TestRun::new("report-1");
     let outside = temp_dir_with_file("outside.txt");
 
     let err = SandboxMount::read_write(outside.path(), "/work", &run).unwrap_err();
@@ -79,7 +104,7 @@ fn write_mount_outside_run_root_is_rejected_before_launch() {
 
 #[test]
 fn unsafe_mount_paths_are_rejected() {
-    let run = run_store("report-1");
+    let run = TestRun::new("report-1");
     let source = temp_dir_with_file("src.txt");
     let missing = source.path().join("missing");
 
@@ -99,7 +124,7 @@ fn unsafe_mount_paths_are_rejected() {
 
 #[test]
 fn symlink_source_mount_is_rejected() {
-    let run = run_store("report-1");
+    let run = TestRun::new("report-1");
     let outside = temp_dir_with_file("secret.txt");
     let link = run.path().join("scratch-link");
     symlink_dir(outside.path(), &link);
@@ -114,9 +139,8 @@ fn symlink_source_mount_is_rejected() {
 fn non_utf8_mount_source_is_rejected() {
     use std::ffi::OsString;
     use std::os::unix::ffi::OsStringExt;
-    use std::path::PathBuf;
 
-    let run = run_store("report-1");
+    let run = TestRun::new("report-1");
     let source = run
         .path()
         .join(PathBuf::from(OsString::from_vec(vec![0xff])));
@@ -177,12 +201,42 @@ impl polyref_loader::sandbox::Sandbox for FakeSandbox {
     }
 }
 
-fn run_store(report_id: &str) -> polyref_graph::RunReportStore {
-    let dir = tempfile::tempdir().unwrap().into_path();
-    ReportStore::open(dir)
-        .unwrap()
-        .create_run(report_id)
-        .unwrap()
+struct TestRun {
+    _dir: tempfile::TempDir,
+    run: polyref_graph::RunReportStore,
+}
+
+impl TestRun {
+    fn new(report_id: &str) -> Self {
+        let dir = tempfile::tempdir().unwrap();
+        let run = ReportStore::open(dir.path())
+            .unwrap()
+            .create_run(report_id)
+            .unwrap();
+        Self { _dir: dir, run }
+    }
+
+    fn path(&self) -> &Path {
+        self.run.path()
+    }
+}
+
+impl std::ops::Deref for TestRun {
+    type Target = polyref_graph::RunReportStore;
+
+    fn deref(&self) -> &Self::Target {
+        &self.run
+    }
+}
+
+fn profile_with_mounts(
+    backend: SandboxBackend,
+    source_path: &Path,
+    run: &polyref_graph::RunReportStore,
+) -> SandboxProfileSpec {
+    SandboxProfileSpec::default_no_network(backend)
+        .with_mount(SandboxMount::read_only(source_path, "/src").unwrap())
+        .with_mount(SandboxMount::read_write(run.path().join("scratch"), "/work", run).unwrap())
 }
 
 fn temp_dir_with_file(name: &str) -> tempfile::TempDir {
