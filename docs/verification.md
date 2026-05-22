@@ -8,7 +8,7 @@ Defines what "done" means at each layer of `build-plan.md`.
 | --- | --- | --- | --- |
 | 0 | Schema integrity, core types | JSON Schema lint, round-trip serde tests | `cargo build` clean; 28 schemas validate against Draft 2020-12 |
 | 1 | Persistence round-trips | 10 k-entity stress test; NDJSON replay | Round-trip equals input; cache hit/miss counters wired |
-| 2 | Sandbox isolation | Negative tests: candidate that tries `curl example.com`, `cat /etc/passwd`, `mkdir /` | All denied; events `sandbox_denied` logged; `Unknown` returned |
+| 2 | Sandbox isolation | Negative tests: candidate that tries `curl example.com`, `cat /etc/passwd`, `mkdir /` | All denied with typed replay/sandbox errors; events `sandbox_denied` logged |
 | 3 | Plugin host correctness | Dummy echo, dummy crash, dummy infinite-loop plugins | Each maps to the correct `UnknownReason`; replay deterministic |
 | 4 | First extractor + route checker | §2 fixture | Route correspondence emerges; checker returns `Migrated` |
 | 5 | Frontier closure | Hand-built fixtures + property test | `∂ρ(o)` matches expected sets; closure invariant holds |
