@@ -19,10 +19,6 @@
 //!   migrations are first-class.
 //! - No runtime I/O; `#![forbid(unsafe_code)]`.
 //!
-//! Most function bodies in this Slice 1 skeleton are `todo!()` stubs.
-//! See `claude/05-handoff-1-core-ir.md` §E for the test list that turns
-//! the stubs green.
-
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 

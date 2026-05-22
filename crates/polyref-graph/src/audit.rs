@@ -69,12 +69,12 @@ pub enum AuditEventTag {
     ObservationRewritten,
     /// Per-observation status reduced from frontier-item statuses.
     ObservationStatusAssigned,
-    /// Report assembled and written to disk; run is over.
-    ReportFinalized,
-    /// Repository checkout (R or R') is on disk and ready.
-    RepoLoaded,
     /// Candidate patch replay completed successfully.
     ReplayCompleted,
+    /// Repository checkout (R or R') is on disk and ready.
+    RepoLoaded,
+    /// Report assembled and written to disk; run is over.
+    ReportFinalized,
     /// Sandbox denied or failed a replay/plugin operation.
     SandboxDenied,
     /// Sandbox replay/plugin operation started.
@@ -105,9 +105,9 @@ impl AuditEventTag {
             AuditEventTag::ObligationEmitted => "obligation_emitted",
             AuditEventTag::ObservationRewritten => "observation_rewritten",
             AuditEventTag::ObservationStatusAssigned => "observation_status_assigned",
-            AuditEventTag::ReportFinalized => "report_finalized",
-            AuditEventTag::RepoLoaded => "repo_loaded",
             AuditEventTag::ReplayCompleted => "replay_completed",
+            AuditEventTag::RepoLoaded => "repo_loaded",
+            AuditEventTag::ReportFinalized => "report_finalized",
             AuditEventTag::SandboxDenied => "sandbox_denied",
             AuditEventTag::SandboxStarted => "sandbox_started",
         }
@@ -134,9 +134,9 @@ impl AuditEventTag {
             "obligation_emitted" => Ok(AuditEventTag::ObligationEmitted),
             "observation_rewritten" => Ok(AuditEventTag::ObservationRewritten),
             "observation_status_assigned" => Ok(AuditEventTag::ObservationStatusAssigned),
-            "report_finalized" => Ok(AuditEventTag::ReportFinalized),
-            "repo_loaded" => Ok(AuditEventTag::RepoLoaded),
             "replay_completed" => Ok(AuditEventTag::ReplayCompleted),
+            "repo_loaded" => Ok(AuditEventTag::RepoLoaded),
+            "report_finalized" => Ok(AuditEventTag::ReportFinalized),
             "sandbox_denied" => Ok(AuditEventTag::SandboxDenied),
             "sandbox_started" => Ok(AuditEventTag::SandboxStarted),
             other => Err(AuditEventTagParseError(other.to_owned())),
@@ -288,7 +288,7 @@ mod tests {
     }
 
     #[test]
-    fn audit_event_tag_round_trip_covers_all_14_variants() {
+    fn audit_event_tag_round_trip_covers_all_17_variants() {
         let all = [
             AuditEventTag::ArtifactClassified,
             AuditEventTag::CheckerInvoked,
@@ -302,13 +302,17 @@ mod tests {
             AuditEventTag::ObligationEmitted,
             AuditEventTag::ObservationRewritten,
             AuditEventTag::ObservationStatusAssigned,
-            AuditEventTag::ReportFinalized,
-            AuditEventTag::RepoLoaded,
             AuditEventTag::ReplayCompleted,
+            AuditEventTag::RepoLoaded,
+            AuditEventTag::ReportFinalized,
             AuditEventTag::SandboxDenied,
             AuditEventTag::SandboxStarted,
         ];
         assert_eq!(all.len(), 17);
+        let tags = all.map(AuditEventTag::as_tag);
+        let mut sorted = tags;
+        sorted.sort_unstable();
+        assert_eq!(tags, sorted);
         for tag in all {
             assert_eq!(AuditEventTag::parse(tag.as_tag()).unwrap(), tag);
         }
@@ -778,6 +782,13 @@ impl<R: BufRead> Iterator for AuditReader<R> {
                 let nl = buf.iter().position(|&b| b == b'\n');
                 let take = nl.map_or(buf.len(), |i| i + 1);
                 if total + take > AUDIT_LINE_MAX_BYTES {
+                    let needs_drain = nl.is_none();
+                    self.inner.consume(take);
+                    if needs_drain {
+                        if let Err(error) = self.drain_to_next_line() {
+                            return Some(Err(AuditReadError::Io(error)));
+                        }
+                    }
                     return Some(Err(AuditReadError::LineTooLong {
                         line_no: self.line_no,
                     }));
@@ -789,7 +800,13 @@ impl<R: BufRead> Iterator for AuditReader<R> {
                     Err(_) => {
                         // Consume the rest of the line so the iterator
                         // can advance past the corruption.
+                        let needs_drain = nl.is_none();
                         self.inner.consume(take);
+                        if needs_drain {
+                            if let Err(error) = self.drain_to_next_line() {
+                                return Some(Err(AuditReadError::Io(error)));
+                            }
+                        }
                         return Some(Err(
                             self.synth_bad_json("line is not valid UTF-8".to_owned())
                         ));
@@ -822,6 +839,21 @@ impl<R: BufRead> Iterator for AuditReader<R> {
 }
 
 impl<R: BufRead> AuditReader<R> {
+    fn drain_to_next_line(&mut self) -> std::io::Result<()> {
+        loop {
+            let buf = self.inner.fill_buf()?;
+            if buf.is_empty() {
+                return Ok(());
+            }
+            let nl = buf.iter().position(|&b| b == b'\n');
+            let take = nl.map_or(buf.len(), |i| i + 1);
+            self.inner.consume(take);
+            if nl.is_some() {
+                return Ok(());
+            }
+        }
+    }
+
     fn parse_line(&self, line: &str) -> Result<AuditEvent, AuditReadError> {
         let event: AuditEvent =
             serde_json::from_str(line).map_err(|e| AuditReadError::BadJson {
@@ -954,6 +986,46 @@ mod reader_tests {
             matches!(err, AuditReadError::LineTooLong { line_no: 1 }),
             "got {err:?}"
         );
+    }
+
+    #[test]
+    fn reader_recovers_after_overlong_line() {
+        let big = "x".repeat(AUDIT_LINE_MAX_BYTES + 16);
+        let valid = serde_json::to_string(&sample_event(AuditEventTag::RepoLoaded, b'a')).unwrap();
+        let payload = format!("{big}\n{valid}\n");
+
+        let mut r = AuditReader::new(Cursor::new(payload));
+        let err = r.next().unwrap().unwrap_err();
+        assert!(
+            matches!(err, AuditReadError::LineTooLong { line_no: 1 }),
+            "got {err:?}"
+        );
+
+        let event = r.next().unwrap().unwrap();
+        assert_eq!(event.tag, AuditEventTag::RepoLoaded);
+        assert!(r.next().is_none());
+    }
+
+    #[test]
+    fn reader_recovers_after_multichunk_non_utf8_line() {
+        let valid = serde_json::to_string(&sample_event(AuditEventTag::RepoLoaded, b'a')).unwrap();
+        let mut payload = vec![b'a'; 32];
+        payload[3] = 0xff;
+        payload.extend_from_slice(b"\n");
+        payload.extend_from_slice(valid.as_bytes());
+        payload.extend_from_slice(b"\n");
+        let cursor = Cursor::new(payload);
+        let mut r = AuditReader::new(BufReader::with_capacity(8, cursor));
+
+        let err = r.next().unwrap().unwrap_err();
+        assert!(
+            matches!(err, AuditReadError::BadJson { line_no: 1, .. }),
+            "got {err:?}"
+        );
+
+        let event = r.next().unwrap().unwrap();
+        assert_eq!(event.tag, AuditEventTag::RepoLoaded);
+        assert!(r.next().is_none());
     }
 
     #[test]

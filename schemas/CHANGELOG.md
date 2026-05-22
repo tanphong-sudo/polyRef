@@ -37,7 +37,7 @@ ADR-005.
 
 ## 0.2.0 — Layer 1 audit log
 
-`audit-event.json` no longer a placeholder. Closed `tag` enum (14
+`audit-event.json` no longer a placeholder. Closed `tag` enum (17
 members per ADR-006) plus required `actor` and `payload_hash` fields
 for replay verification:
 
@@ -53,8 +53,11 @@ for replay verification:
 - `obligation_emitted`
 - `observation_rewritten`
 - `observation_status_assigned`
-- `report_finalized`
+- `replay_completed`
 - `repo_loaded`
+- `report_finalized`
+- `sandbox_denied`
+- `sandbox_started`
 
 Tag enum order is **lexicographic ascending of variant names** per
 ADR-005 (hard blocker F-2).

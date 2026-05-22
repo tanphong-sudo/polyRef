@@ -332,7 +332,8 @@ impl GraphStore for SqliteGraphStore {
                 params![corr.corr_id.as_str()],
             )?;
             for (position, entity_id) in corr.endpoints.iter().enumerate() {
-                let pos_i64: i64 = i64::try_from(position).unwrap_or(i64::MAX);
+                let pos_i64: i64 = i64::try_from(position)
+                    .map_err(|_| GraphStoreError::PositionOverflow { position })?;
                 tx.execute(
                     "INSERT INTO correspondence_endpoint (corr_id, position, entity_id) \
                      VALUES (?1, ?2, ?3)",
