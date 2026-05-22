@@ -139,6 +139,7 @@ fn symlink_source_mount_is_rejected() {
 fn non_utf8_mount_source_is_rejected() {
     use std::ffi::OsString;
     use std::os::unix::ffi::OsStringExt;
+    use std::path::PathBuf;
 
     let run = TestRun::new("report-1");
     let source = run
