@@ -88,3 +88,74 @@ fn memo_store_rejects_oversized_response() {
 
     assert!(err.to_string().contains("exceeds"));
 }
+
+#[test]
+fn pool_memoized_call_replays_cached_bytes_without_live_plugin() {
+    let fixture = PoolPluginFixture::new("echo", POOL_ECHO_PLUGIN);
+    let launch = polyref_checker_spi::host::PluginLaunchConfig::new(
+        PluginBinary::new(fixture.path(), "digest-a").unwrap(),
+    );
+    let config = polyref_checker_spi::host::PluginPoolConfig::new(
+        polyref_checker_spi::host::PluginKind::Extractor,
+    );
+    let pool = polyref_checker_spi::host::PluginPool::new(config, launch).unwrap();
+    let id = PluginRequestId::new("req-live").unwrap();
+    let mut memo = PluginMemoStore::default();
+
+    let first = pool
+        .call_memoized(
+            &mut memo,
+            "0.1.0",
+            PluginMethod::Extract,
+            &id,
+            json!({}),
+            std::time::Duration::from_secs(2),
+        )
+        .unwrap();
+
+    std::fs::remove_file(fixture.path()).unwrap();
+
+    let second = pool
+        .call_memoized(
+            &mut memo,
+            "0.1.0",
+            PluginMethod::Extract,
+            &id,
+            json!({}),
+            std::time::Duration::from_secs(2),
+        )
+        .unwrap();
+
+    assert_eq!(first.result, second.result);
+}
+
+struct PoolPluginFixture {
+    _dir: tempfile::TempDir,
+    path: std::path::PathBuf,
+}
+
+impl PoolPluginFixture {
+    fn new(name: &str, body: &str) -> Self {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(name);
+        std::fs::write(&path, body).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(&path).unwrap().permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(&path, perms).unwrap();
+        }
+        Self { _dir: dir, path }
+    }
+
+    fn path(&self) -> &std::path::Path {
+        &self.path
+    }
+}
+
+const POOL_ECHO_PLUGIN: &str = r#"#!/bin/sh
+line=$(cat)
+id=$(printf '%s' "$line" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+printf '{"jsonrpc":"2.0","id":"%s","result":{"cached":true}}\n' "$id"
+"#;

@@ -439,6 +439,44 @@ impl PluginPool {
         run_plugin_call(&self.launch, method, id, params, timeout)
     }
 
+    /// Run one bounded call through a memo store.
+    ///
+    /// Cache hits return exact stored response bytes after protocol validation.
+    /// Cache misses run the plugin once, store exact stdout bytes, then return
+    /// the decoded response.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PluginHostError`] when the cache entry is malformed, the queue
+    /// is full, or the plugin call fails.
+    pub fn call_memoized(
+        &self,
+        memo: &mut PluginMemoStore,
+        protocol_version: &str,
+        method: PluginMethod,
+        id: &PluginRequestId,
+        params: Value,
+        timeout: Duration,
+    ) -> Result<JsonRpcResponse, PluginHostError> {
+        let request_payload = encode_request_payload(method, id, params, self.launch.limits)?;
+        let key = PluginMemoKey::new(
+            method,
+            &request_payload,
+            self.launch.binary(),
+            protocol_version,
+        );
+        if let Some(bytes) = memo.get(&key) {
+            return decode_response_line(bytes, id, self.launch.limits);
+        }
+        let mut request_line = request_payload;
+        request_line.push(b'\n');
+        let _permit = self.acquire_permit()?;
+        let response_bytes = run_plugin_request_line(&self.launch, request_line, timeout)?;
+        let response = decode_response_line(&response_bytes, id, self.launch.limits)?;
+        memo.insert(key, response_bytes)?;
+        Ok(response)
+    }
+
     fn acquire_permit(&self) -> Result<PoolPermit<'_>, PluginHostError> {
         let mut counts = self.state.counts.lock().map_err(|_| {
             PluginHostError::Io(std::io::Error::new(
@@ -648,6 +686,15 @@ pub fn run_plugin_call(
     timeout: Duration,
 ) -> Result<JsonRpcResponse, PluginHostError> {
     let request = encode_request_line(method, id, params, config.limits)?;
+    let stdout = run_plugin_request_line(config, request, timeout)?;
+    decode_response_line(&stdout, id, config.limits)
+}
+
+fn run_plugin_request_line(
+    config: &PluginLaunchConfig,
+    request: Vec<u8>,
+    timeout: Duration,
+) -> Result<Vec<u8>, PluginHostError> {
     let mut command = Command::new(config.binary.path());
     command
         .stdin(Stdio::piped())
@@ -713,7 +760,8 @@ pub fn run_plugin_call(
             stderr_bytes: stderr.len(),
         });
     }
-    decode_response_line(&stdout, id, config.limits)
+    enforce_payload_limit(stdout.len(), config.limits.max_payload_bytes)?;
+    Ok(stdout)
 }
 
 fn validate_response(
