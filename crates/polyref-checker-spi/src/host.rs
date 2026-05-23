@@ -4,6 +4,7 @@
 //! not spawn plugin processes; process supervision is layered on top so protocol
 //! tests can stay deterministic and backend-neutral.
 
+use crate::cgroup::{IsolationBackend, IsolationError, PluginIsolationProfile};
 use crate::envelope::{JsonRpcError, JsonRpcRequest, JsonRpcResponse};
 use crate::limits::Limits;
 use polyref_core::correspondence_kind::CorrespondenceKind;
@@ -52,6 +53,21 @@ pub struct PluginLaunchConfig {
     env: Vec<(String, String)>,
     limits: Limits,
     stderr_cap_bytes: usize,
+    isolation: PluginIsolationMode,
+}
+
+/// Process isolation mode for plugin launch.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PluginIsolationMode {
+    /// Direct host execution, intended for deterministic unit tests only.
+    DirectForTests,
+    /// Run through an OS isolation backend before the plugin binary.
+    Backend {
+        /// Backend executable/profile family.
+        backend: IsolationBackend,
+        /// Resource/seccomp profile.
+        profile: PluginIsolationProfile,
+    },
 }
 
 /// Deterministic key for memoized plugin response bytes.
@@ -159,6 +175,9 @@ pub enum PluginHostError {
     /// Plugin pool configuration is invalid.
     #[error("invalid plugin pool config: {0}")]
     InvalidPoolConfig(String),
+    /// Plugin isolation profile is invalid.
+    #[error("invalid plugin isolation: {0}")]
+    Isolation(#[from] IsolationError),
     /// Plugin pool queue is full.
     #[error("plugin pool backpressure for {kind:?}: active={active}, waiting={waiting}, queue_bound={queue_bound}")]
     Backpressure {
@@ -309,6 +328,7 @@ impl PluginLaunchConfig {
             env: Vec::new(),
             limits: Limits::default(),
             stderr_cap_bytes: 8 * 1024,
+            isolation: PluginIsolationMode::DirectForTests,
         }
     }
 
@@ -333,6 +353,22 @@ impl PluginLaunchConfig {
         self
     }
 
+    /// Run plugin through an isolation backend.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PluginHostError::Isolation`] when the profile weakens ADR-009
+    /// requirements.
+    pub fn with_isolation_backend(
+        mut self,
+        backend: IsolationBackend,
+        profile: PluginIsolationProfile,
+    ) -> Result<Self, PluginHostError> {
+        profile.validate()?;
+        self.isolation = PluginIsolationMode::Backend { backend, profile };
+        Ok(self)
+    }
+
     /// Plugin binary identity.
     #[must_use]
     pub fn binary(&self) -> &PluginBinary {
@@ -343,6 +379,26 @@ impl PluginLaunchConfig {
     #[must_use]
     pub fn limits(&self) -> Limits {
         self.limits
+    }
+
+    /// Build the executable and arguments used to launch the plugin.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PluginHostError::Isolation`] when an isolation profile is
+    /// invalid.
+    pub fn command_spec(&self) -> Result<(String, Vec<String>), PluginHostError> {
+        let plugin_path = self
+            .binary
+            .path()
+            .to_str()
+            .ok_or_else(|| PluginHostError::InvalidPluginBinary("non-utf8 path".to_owned()))?;
+        match &self.isolation {
+            PluginIsolationMode::DirectForTests => Ok((plugin_path.to_owned(), Vec::new())),
+            PluginIsolationMode::Backend { backend, profile } => profile
+                .backend_command(*backend, plugin_path)
+                .map_err(PluginHostError::Isolation),
+        }
     }
 }
 
@@ -355,6 +411,7 @@ impl fmt::Debug for PluginLaunchConfig {
             .field("env_keys", &env_keys)
             .field("limits", &"Limits { .. }")
             .field("stderr_cap_bytes", &self.stderr_cap_bytes)
+            .field("isolation", &self.isolation)
             .finish()
     }
 }
@@ -374,6 +431,7 @@ impl PluginHostError {
             | Self::InvalidPluginBinary(_)
             | Self::InvalidMemoKey(_)
             | Self::InvalidPoolConfig(_)
+            | Self::Isolation(_)
             | Self::Backpressure { .. }
             | Self::Io(_)
             | Self::NonZeroExit { .. } => Some(UnknownReason::PluginFailure),
@@ -747,7 +805,9 @@ fn run_plugin_request_line(
     request: Vec<u8>,
     timeout: Duration,
 ) -> Result<Vec<u8>, PluginHostError> {
-    let mut command = Command::new(config.binary.path());
+    let (program, args) = config.command_spec()?;
+    let mut command = Command::new(program);
+    command.args(args);
     command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -818,7 +878,9 @@ fn run_plugin_request_line(
 
 impl PluginWorker {
     fn spawn(config: &PluginLaunchConfig) -> Result<Self, PluginHostError> {
-        let mut command = Command::new(config.binary.path());
+        let (program, args) = config.command_spec()?;
+        let mut command = Command::new(program);
+        command.args(args);
         command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

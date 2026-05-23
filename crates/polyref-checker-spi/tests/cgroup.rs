@@ -66,3 +66,18 @@ fn nsjail_args_include_no_network_and_resource_limits() -> Result<(), IsolationE
     assert!(args.contains(&(1024_u64 * 1024 * 1024).to_string()));
     Ok(())
 }
+
+#[test]
+fn launch_config_can_build_nsjail_isolated_command() -> Result<(), Box<dyn std::error::Error>> {
+    let binary = polyref_checker_spi::host::PluginBinary::new("/tmp/polyref-plugin", "digest")?;
+    let config = polyref_checker_spi::host::PluginLaunchConfig::new(binary)
+        .with_isolation_backend(IsolationBackend::Nsjail, PluginIsolationProfile::default())?;
+
+    let (program, args) = config.command_spec()?;
+
+    assert_eq!(program, "nsjail");
+    assert!(args.contains(&"--disable_clone_newnet".to_owned()));
+    assert!(args.contains(&"--".to_owned()));
+    assert!(args.contains(&"/tmp/polyref-plugin".to_owned()));
+    Ok(())
+}
