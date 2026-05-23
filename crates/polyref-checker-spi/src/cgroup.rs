@@ -16,6 +16,17 @@ pub enum IsolationBackend {
     SandboxExec,
 }
 
+impl IsolationBackend {
+    /// Backend executable name.
+    #[must_use]
+    pub fn program(self) -> &'static str {
+        match self {
+            Self::Nsjail => "nsjail",
+            Self::SandboxExec => "sandbox-exec",
+        }
+    }
+}
+
 /// Seccomp policy requirements for plugin processes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SeccompPolicy {
@@ -131,6 +142,27 @@ impl PluginIsolationProfile {
             IsolationBackend::Nsjail => self.nsjail_args(),
             IsolationBackend::SandboxExec => self.sandbox_exec_args(),
         })
+    }
+
+    /// Build a backend command prefix that runs `plugin_path` under isolation.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IsolationError`] when the profile is not safe enough to build.
+    pub fn backend_command(
+        &self,
+        backend: IsolationBackend,
+        plugin_path: &str,
+    ) -> Result<(String, Vec<String>), IsolationError> {
+        let mut args = self.backend_args(backend)?;
+        match backend {
+            IsolationBackend::Nsjail => {
+                args.push("--".to_owned());
+                args.push(plugin_path.to_owned());
+            }
+            IsolationBackend::SandboxExec => args.push(plugin_path.to_owned()),
+        }
+        Ok((backend.program().to_owned(), args))
     }
 
     fn nsjail_args(&self) -> Vec<String> {
