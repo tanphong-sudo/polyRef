@@ -1,0 +1,94 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "artifact:old:openapi.yaml:59b85435ba5c",
+      "language": "openapi",
+      "path": "openapi.yaml",
+      "sha256": "59b85435ba5caa1e430ea599a4818841b53acbaf7b2f9527313a247c49c28f52",
+      "side": "old"
+    },
+    {
+      "artifact_id": "artifact:old:src/users.ts:56f5071ee4a7",
+      "language": "ts",
+      "path": "src/users.ts",
+      "sha256": "56f5071ee4a7c3fa40d49a9d065bc9f0c398f77316690ca0c2dc9bb40c768af4",
+      "side": "old"
+    },
+    {
+      "artifact_id": "artifact:new:openapi.yaml:67227c11e6b3",
+      "language": "openapi",
+      "path": "openapi.yaml",
+      "sha256": "67227c11e6b37b309479976835e950c4a1ee0addf496faf933fc7f600a3972e0",
+      "side": "new"
+    },
+    {
+      "artifact_id": "artifact:new:src/users_v2.ts:a77ae6ed0be1",
+      "language": "ts",
+      "path": "src/users_v2.ts",
+      "sha256": "a77ae6ed0be17f9e13614a769c93233fb5b20345472f3ec05089df4fb95e9f44",
+      "side": "new"
+    }
+  ],
+  "entities": {
+    "new_handler": {
+      "export": "createUserV2",
+      "id": "new:ts:handler:src/users_v2.ts#createUserV2:1e65d174f7e5",
+      "method": null,
+      "operation_id": null,
+      "path": null
+    },
+    "new_route": {
+      "export": null,
+      "id": "new:openapi:route:openapi.yaml#/paths/~1v2~1users/post:ccfb160e8e7a",
+      "method": "POST",
+      "operation_id": "createUserV2",
+      "path": "/v2/users"
+    },
+    "old_handler": {
+      "export": "createUser",
+      "id": "old:ts:handler:src/users.ts#createUser:58281b04a766",
+      "method": null,
+      "operation_id": null,
+      "path": null
+    },
+    "old_route": {
+      "export": null,
+      "id": "old:openapi:route:openapi.yaml#/paths/~1users/post:18813ace7501",
+      "method": "POST",
+      "operation_id": "createUser",
+      "path": "/users"
+    }
+  },
+  "migration_map_excerpt": {
+    "conflicts": [],
+    "entity_rewrites": [
+      {
+        "kind": "handler",
+        "new": "new:ts:handler:src/users_v2.ts#createUserV2:1e65d174f7e5",
+        "old": "old:ts:handler:src/users.ts#createUser:58281b04a766"
+      },
+      {
+        "kind": "route",
+        "new": "new:openapi:route:openapi.yaml#/paths/~1v2~1users/post:ccfb160e8e7a",
+        "old": "old:openapi:route:openapi.yaml#/paths/~1users/post:18813ace7501"
+      }
+    ],
+    "observation_part_rewrites": []
+  },
+  "observation_excerpt": {
+    "kind": "route",
+    "new": {
+      "handler": "createUserV2",
+      "method": "POST",
+      "operation_id": "createUserV2",
+      "path": "/v2/users"
+    },
+    "obligation": "POST /v2/users dispatches to createUserV2 after route migration",
+    "old": {
+      "handler": "createUser",
+      "method": "POST",
+      "operation_id": "createUser",
+      "path": "/users"
+    }
+  }
+}
