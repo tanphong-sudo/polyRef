@@ -1,0 +1,49 @@
+openapi: 3.0.3
+info:
+  title: PolyRef Layer 4 Users Fixture
+  version: 2.0.0
+paths:
+  /v2/users:
+    post:
+      operationId: createUserV2
+      summary: Create a user in the v2 API.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreateV2'
+      responses:
+        '201':
+          description: Created user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserV2'
+components:
+  schemas:
+    UserCreateV2:
+      type: object
+      required:
+        - email
+        - displayName
+      properties:
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+    UserV2:
+      type: object
+      required:
+        - id
+        - email
+        - displayName
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
