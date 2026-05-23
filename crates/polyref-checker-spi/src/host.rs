@@ -6,6 +6,7 @@
 
 use crate::envelope::{JsonRpcError, JsonRpcRequest, JsonRpcResponse};
 use crate::limits::Limits;
+use polyref_core::correspondence_kind::CorrespondenceKind;
 use polyref_core::status::UnknownReason;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -14,6 +15,7 @@ use std::fmt;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 use thiserror::Error;
@@ -62,6 +64,44 @@ pub struct PluginMemoStore {
     response_limit_bytes: usize,
 }
 
+/// Kind partition for bounded plugin pools.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum PluginKind {
+    /// Extractor plugin pool.
+    Extractor,
+    /// Kind-checker plugin pool for one correspondence kind.
+    Checker(CorrespondenceKind),
+}
+
+/// Bounded plugin-pool configuration.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PluginPoolConfig {
+    kind: PluginKind,
+    max_processes: usize,
+    queue_bound: usize,
+}
+
+/// Bounded plugin pool dispatcher.
+#[derive(Debug, Clone)]
+pub struct PluginPool {
+    config: PluginPoolConfig,
+    launch: PluginLaunchConfig,
+    state: Arc<PoolState>,
+}
+
+#[derive(Debug)]
+struct PoolState {
+    counts: Mutex<PoolCounts>,
+    available: Condvar,
+}
+
+#[derive(Debug, Default)]
+struct PoolCounts {
+    active: usize,
+    waiting: usize,
+}
+
 /// Protocol-layer host errors.
 #[derive(Debug, Error)]
 #[non_exhaustive]
@@ -100,6 +140,21 @@ pub enum PluginHostError {
     /// Plugin memo key is invalid.
     #[error("invalid plugin memo key: {0}")]
     InvalidMemoKey(String),
+    /// Plugin pool configuration is invalid.
+    #[error("invalid plugin pool config: {0}")]
+    InvalidPoolConfig(String),
+    /// Plugin pool queue is full.
+    #[error("plugin pool backpressure for {kind:?}: active={active}, waiting={waiting}, queue_bound={queue_bound}")]
+    Backpressure {
+        /// Pool kind.
+        kind: PluginKind,
+        /// Active process calls.
+        active: usize,
+        /// Waiting calls.
+        waiting: usize,
+        /// Configured waiting-call bound.
+        queue_bound: usize,
+    },
     /// Plugin executable or process I/O failed.
     #[error("plugin process io error: {0}")]
     Io(#[from] std::io::Error),
@@ -302,8 +357,129 @@ impl PluginHostError {
             | Self::InvalidRequestId(_)
             | Self::InvalidPluginBinary(_)
             | Self::InvalidMemoKey(_)
+            | Self::InvalidPoolConfig(_)
+            | Self::Backpressure { .. }
             | Self::Io(_)
             | Self::NonZeroExit { .. } => Some(UnknownReason::PluginFailure),
+        }
+    }
+}
+
+impl PluginPoolConfig {
+    /// Create a pool config for one plugin kind.
+    #[must_use]
+    pub fn new(kind: PluginKind) -> Self {
+        Self {
+            kind,
+            max_processes: 1,
+            queue_bound: 32,
+        }
+    }
+
+    /// Set the maximum number of concurrent plugin process calls.
+    #[must_use]
+    pub fn with_max_processes(mut self, max_processes: usize) -> Self {
+        self.max_processes = max_processes;
+        self
+    }
+
+    /// Set the number of calls allowed to wait for a process slot.
+    #[must_use]
+    pub fn with_queue_bound(mut self, queue_bound: usize) -> Self {
+        self.queue_bound = queue_bound;
+        self
+    }
+
+    /// Pool kind.
+    #[must_use]
+    pub fn kind(&self) -> PluginKind {
+        self.kind
+    }
+}
+
+impl PluginPool {
+    /// Create a bounded plugin pool.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PluginHostError::InvalidPoolConfig`] when max processes is 0.
+    pub fn new(
+        config: PluginPoolConfig,
+        launch: PluginLaunchConfig,
+    ) -> Result<Self, PluginHostError> {
+        if config.max_processes == 0 {
+            return Err(PluginHostError::InvalidPoolConfig(
+                "max_processes must be greater than zero".to_owned(),
+            ));
+        }
+        Ok(Self {
+            config,
+            launch,
+            state: Arc::new(PoolState {
+                counts: Mutex::new(PoolCounts::default()),
+                available: Condvar::new(),
+            }),
+        })
+    }
+
+    /// Run one bounded plugin call through this pool.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PluginHostError`] when the queue is full or the plugin call
+    /// fails.
+    pub fn call(
+        &self,
+        method: PluginMethod,
+        id: &PluginRequestId,
+        params: Value,
+        timeout: Duration,
+    ) -> Result<JsonRpcResponse, PluginHostError> {
+        let _permit = self.acquire_permit()?;
+        run_plugin_call(&self.launch, method, id, params, timeout)
+    }
+
+    fn acquire_permit(&self) -> Result<PoolPermit<'_>, PluginHostError> {
+        let mut counts = self.state.counts.lock().map_err(|_| {
+            PluginHostError::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "plugin pool mutex poisoned",
+            ))
+        })?;
+        if counts.active >= self.config.max_processes {
+            if counts.waiting >= self.config.queue_bound {
+                return Err(PluginHostError::Backpressure {
+                    kind: self.config.kind,
+                    active: counts.active,
+                    waiting: counts.waiting,
+                    queue_bound: self.config.queue_bound,
+                });
+            }
+            counts.waiting += 1;
+            while counts.active >= self.config.max_processes {
+                counts = self.state.available.wait(counts).map_err(|_| {
+                    PluginHostError::Io(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        "plugin pool mutex poisoned",
+                    ))
+                })?;
+            }
+            counts.waiting -= 1;
+        }
+        counts.active += 1;
+        Ok(PoolPermit { pool: self })
+    }
+}
+
+struct PoolPermit<'a> {
+    pool: &'a PluginPool,
+}
+
+impl Drop for PoolPermit<'_> {
+    fn drop(&mut self) {
+        if let Ok(mut counts) = self.pool.state.counts.lock() {
+            counts.active = counts.active.saturating_sub(1);
+            self.pool.state.available.notify_one();
         }
     }
 }

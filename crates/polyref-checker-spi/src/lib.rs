@@ -21,6 +21,7 @@ pub use error::SpiError;
 pub use extractor::{ExtractRequest, ExtractResult, ExtractedEntity, UnsupportedFeatureNote};
 pub use host::{
     decode_response_line, encode_request_line, run_plugin_call, PluginBinary, PluginHostError,
-    PluginLaunchConfig, PluginMemoKey, PluginMemoStore, PluginMethod,
+    PluginKind, PluginLaunchConfig, PluginMemoKey, PluginMemoStore, PluginMethod, PluginPool,
+    PluginPoolConfig,
 };
 pub use limits::{Limits, LimitsError, SafePath, SafePathError};
