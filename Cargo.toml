@@ -6,6 +6,7 @@ members = [
     "crates/polyref-graph",
     "crates/polyref-loader",
     "plugins/extractor-openapi",
+    "plugins/extractor-typescript",
 ]
 
 [workspace.package]
@@ -38,6 +39,8 @@ indexmap = "=2.2.6"
 sha2 = "0.10"
 tempfile = "3.10"
 thiserror = "1.0"
+tree-sitter = "0.23"
+tree-sitter-typescript = "0.23"
 unicode-normalization = "0.1"
 
 [profile.release]
