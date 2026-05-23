@@ -6,7 +6,14 @@
 
 use crate::envelope::{JsonRpcError, JsonRpcRequest, JsonRpcResponse};
 use crate::limits::Limits;
+use polyref_core::status::UnknownReason;
 use serde_json::Value;
+use std::fmt;
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
 use thiserror::Error;
 
 /// JSON-RPC methods supported by the PolyRef plugin SPI.
@@ -24,6 +31,23 @@ pub enum PluginMethod {
 /// Non-null JSON-RPC request id used by the host.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PluginRequestId(String);
+
+/// Plugin executable identity used by host supervision and memo keys.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PluginBinary {
+    path: PathBuf,
+    digest: String,
+}
+
+/// Launch configuration for one plugin process.
+#[derive(Clone)]
+pub struct PluginLaunchConfig {
+    binary: PluginBinary,
+    cwd: Option<PathBuf>,
+    env: Vec<(String, String)>,
+    limits: Limits,
+    stderr_cap_bytes: usize,
+}
 
 /// Protocol-layer host errors.
 #[derive(Debug, Error)]
@@ -57,6 +81,26 @@ pub enum PluginHostError {
     /// Request id is empty or too large.
     #[error("invalid plugin request id: {0}")]
     InvalidRequestId(String),
+    /// Plugin binary identity is invalid.
+    #[error("invalid plugin binary: {0}")]
+    InvalidPluginBinary(String),
+    /// Plugin executable or process I/O failed.
+    #[error("plugin process io error: {0}")]
+    Io(#[from] std::io::Error),
+    /// Plugin did not finish before its deadline.
+    #[error("plugin timed out after {timeout_ms} ms")]
+    Timeout {
+        /// Timeout in milliseconds.
+        timeout_ms: u128,
+    },
+    /// Plugin exited with a failing status.
+    #[error("plugin exited non-zero: code={code:?}, stderr_bytes={stderr_bytes}")]
+    NonZeroExit {
+        /// Process exit code, if the platform reported one.
+        code: Option<i32>,
+        /// Number of captured stderr bytes, capped by config.
+        stderr_bytes: usize,
+    },
 }
 
 impl PluginMethod {
@@ -124,6 +168,129 @@ impl PluginRequestId {
     }
 }
 
+impl PluginBinary {
+    /// Create a plugin binary identity.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PluginHostError::InvalidPluginBinary`] when the digest is
+    /// empty or the path cannot be represented safely.
+    pub fn new(path: impl AsRef<Path>, digest: impl Into<String>) -> Result<Self, PluginHostError> {
+        let path = path.as_ref();
+        if path.as_os_str().is_empty() {
+            return Err(PluginHostError::InvalidPluginBinary(
+                "empty path".to_owned(),
+            ));
+        }
+        if path.to_str().is_none() {
+            return Err(PluginHostError::InvalidPluginBinary(
+                "non-utf8 path".to_owned(),
+            ));
+        }
+        let digest = digest.into();
+        if digest.is_empty() {
+            return Err(PluginHostError::InvalidPluginBinary(
+                "empty plugin digest".to_owned(),
+            ));
+        }
+        Ok(Self {
+            path: path.to_path_buf(),
+            digest,
+        })
+    }
+
+    /// Plugin executable path.
+    #[must_use]
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// Plugin binary digest string.
+    #[must_use]
+    pub fn digest(&self) -> &str {
+        &self.digest
+    }
+}
+
+impl PluginLaunchConfig {
+    /// Create launch config with empty environment and default limits.
+    #[must_use]
+    pub fn new(binary: PluginBinary) -> Self {
+        Self {
+            binary,
+            cwd: None,
+            env: Vec::new(),
+            limits: Limits::default(),
+            stderr_cap_bytes: 8 * 1024,
+        }
+    }
+
+    /// Set plugin working directory.
+    #[must_use]
+    pub fn with_cwd(mut self, cwd: impl AsRef<Path>) -> Self {
+        self.cwd = Some(cwd.as_ref().to_path_buf());
+        self
+    }
+
+    /// Add one explicit environment variable.
+    #[must_use]
+    pub fn with_env(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.env.push((key.into(), value.into()));
+        self
+    }
+
+    /// Override limits.
+    #[must_use]
+    pub fn with_limits(mut self, limits: Limits) -> Self {
+        self.limits = limits;
+        self
+    }
+
+    /// Plugin binary identity.
+    #[must_use]
+    pub fn binary(&self) -> &PluginBinary {
+        &self.binary
+    }
+
+    /// Configured limits.
+    #[must_use]
+    pub fn limits(&self) -> Limits {
+        self.limits
+    }
+}
+
+impl fmt::Debug for PluginLaunchConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let env_keys = self.env.iter().map(|(key, _)| key).collect::<Vec<_>>();
+        f.debug_struct("PluginLaunchConfig")
+            .field("binary", &self.binary)
+            .field("cwd", &self.cwd)
+            .field("env_keys", &env_keys)
+            .field("limits", &"Limits { .. }")
+            .field("stderr_cap_bytes", &self.stderr_cap_bytes)
+            .finish()
+    }
+}
+
+impl PluginHostError {
+    /// Map host failures into the fail-closed `UnknownReason` used by Layer 3.
+    #[must_use]
+    pub fn unknown_reason(&self) -> Option<UnknownReason> {
+        match self {
+            Self::Timeout { .. } => Some(UnknownReason::CheckerTimeout),
+            Self::PayloadTooLarge { .. }
+            | Self::Json(_)
+            | Self::MalformedResponse(_)
+            | Self::UnexpectedId { .. }
+            | Self::UnsupportedMethod(_)
+            | Self::InvalidRequestId(_)
+            | Self::InvalidPluginBinary(_)
+            | Self::Io(_)
+            | Self::NonZeroExit { .. } => Some(UnknownReason::PluginFailure),
+        }
+    }
+}
+
 /// Encode a JSON-RPC request as one canonical transport line.
 ///
 /// The returned bytes contain exactly one trailing newline. The cached request
@@ -184,6 +351,91 @@ pub fn decode_response_line(
     Ok(response)
 }
 
+/// Run one plugin request against one plugin process.
+///
+/// This is the Layer 3 single-call primitive. Pooling/reuse is intentionally
+/// layered above it so timeout/crash semantics stay easy to audit.
+///
+/// # Errors
+///
+/// Returns [`PluginHostError`] for spawn/I/O failure, timeout, non-zero exit,
+/// malformed response, or protocol validation failure.
+pub fn run_plugin_call(
+    config: &PluginLaunchConfig,
+    method: PluginMethod,
+    id: &PluginRequestId,
+    params: Value,
+    timeout: Duration,
+) -> Result<JsonRpcResponse, PluginHostError> {
+    let request = encode_request_line(method, id, params, config.limits)?;
+    let mut command = Command::new(config.binary.path());
+    command
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .env_clear();
+    if let Some(cwd) = &config.cwd {
+        command.current_dir(cwd);
+    }
+    for (key, value) in &config.env {
+        command.env(key, value);
+    }
+
+    let mut child = command.spawn()?;
+    let mut stdin = child.stdin.take().ok_or_else(|| {
+        PluginHostError::Io(std::io::Error::new(
+            std::io::ErrorKind::BrokenPipe,
+            "plugin stdin unavailable",
+        ))
+    })?;
+    stdin.write_all(&request)?;
+    drop(stdin);
+
+    let stdout = child.stdout.take().ok_or_else(|| {
+        PluginHostError::Io(std::io::Error::new(
+            std::io::ErrorKind::BrokenPipe,
+            "plugin stdout unavailable",
+        ))
+    })?;
+    let stderr = child.stderr.take().ok_or_else(|| {
+        PluginHostError::Io(std::io::Error::new(
+            std::io::ErrorKind::BrokenPipe,
+            "plugin stderr unavailable",
+        ))
+    })?;
+    let stdout_cap = config.limits.max_payload_bytes.saturating_add(1);
+    let stdout_reader = thread::spawn(move || read_capped(stdout, stdout_cap));
+    let stderr_cap = config.stderr_cap_bytes;
+    let stderr_reader = thread::spawn(move || read_capped(stderr, stderr_cap));
+
+    let started = Instant::now();
+    let status = loop {
+        if let Some(status) = child.try_wait()? {
+            break status;
+        }
+        if started.elapsed() >= timeout {
+            child.kill()?;
+            let _ = child.wait();
+            let _ = join_reader(stdout_reader)?;
+            let _ = join_reader(stderr_reader)?;
+            return Err(PluginHostError::Timeout {
+                timeout_ms: timeout.as_millis(),
+            });
+        }
+        thread::sleep(Duration::from_millis(5));
+    };
+
+    let stdout = join_reader(stdout_reader)?;
+    let stderr = join_reader(stderr_reader)?;
+    if !status.success() {
+        return Err(PluginHostError::NonZeroExit {
+            code: status.code(),
+            stderr_bytes: stderr.len(),
+        });
+    }
+    decode_response_line(&stdout, id, config.limits)
+}
+
 fn validate_response(
     response: &JsonRpcResponse,
     expected_id: &PluginRequestId,
@@ -242,6 +494,33 @@ fn enforce_payload_limit(actual: usize, limit: usize) -> Result<(), PluginHostEr
         return Err(PluginHostError::PayloadTooLarge { limit, actual });
     }
     Ok(())
+}
+
+fn read_capped<R: Read>(mut reader: R, cap: usize) -> std::io::Result<Vec<u8>> {
+    let mut buffer = Vec::new();
+    let mut chunk = [0_u8; 8192];
+    while buffer.len() < cap {
+        let remaining = cap - buffer.len();
+        let read_len = remaining.min(chunk.len());
+        let n = reader.read(&mut chunk[..read_len])?;
+        if n == 0 {
+            break;
+        }
+        buffer.extend_from_slice(&chunk[..n]);
+    }
+    Ok(buffer)
+}
+
+fn join_reader(
+    reader: thread::JoinHandle<std::io::Result<Vec<u8>>>,
+) -> Result<Vec<u8>, PluginHostError> {
+    reader.join().map_err(|_| {
+        PluginHostError::Io(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "plugin reader thread panicked",
+        ))
+    })?
+    .map_err(PluginHostError::Io)
 }
 
 #[allow(dead_code)]

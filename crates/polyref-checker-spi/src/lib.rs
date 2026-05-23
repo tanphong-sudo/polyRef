@@ -19,5 +19,8 @@ pub use checker::{CheckRequest, CheckResult, DescribeResult, EndpointArg};
 pub use envelope::{JsonRpcEnvelopeError, JsonRpcError, JsonRpcRequest, JsonRpcResponse};
 pub use error::SpiError;
 pub use extractor::{ExtractRequest, ExtractResult, ExtractedEntity, UnsupportedFeatureNote};
-pub use host::{decode_response_line, encode_request_line, PluginHostError, PluginMethod};
+pub use host::{
+    decode_response_line, encode_request_line, run_plugin_call, PluginBinary, PluginHostError,
+    PluginLaunchConfig, PluginMethod,
+};
 pub use limits::{Limits, LimitsError, SafePath, SafePathError};
