@@ -1,0 +1,36 @@
+# Default owner for all repository changes.
+* @tanphong-sudo
+
+# Project governance and contributor workflow.
+/CONTRIBUTING.md @tanphong-sudo
+
+# Architecture and paper-facing documentation.
+/docs/ @tanphong-sudo
+/README.md @tanphong-sudo
+
+# Public schemas and protocol contracts.
+/schemas/ @tanphong-sudo
+/crates/polyref-core/ @tanphong-sudo
+/crates/polyref-checker-spi/ @tanphong-sudo
+
+# Persistence, graph, loader, and future core layers.
+/crates/polyref-graph/ @tanphong-sudo
+/crates/polyref-loader/ @tanphong-sudo
+/crates/polyref-frontier/ @tanphong-sudo
+/crates/polyref-engine/ @tanphong-sudo
+/crates/polyref-rewriter/ @tanphong-sudo
+/crates/polyref-report/ @tanphong-sudo
+/crates/polyref-cli/ @tanphong-sudo
+
+# Plugin, fixture, proof, and evaluation artifacts.
+/plugins/ @tanphong-sudo
+/fixtures/ @tanphong-sudo
+/coq/ @tanphong-sudo
+/eval/ @tanphong-sudo
+
+# CI, dependency, and security configuration.
+/.github/ @tanphong-sudo
+/Cargo.toml @tanphong-sudo
+/Cargo.lock @tanphong-sudo
+/deny.toml @tanphong-sudo
+/rust-toolchain.toml @tanphong-sudo
