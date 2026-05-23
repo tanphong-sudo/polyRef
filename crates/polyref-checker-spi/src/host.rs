@@ -1,8 +1,7 @@
 //! Layer 3 plugin-host protocol helpers.
 //!
-//! This module owns ADR-002 one-line JSON-RPC framing and validation. It does
-//! not spawn plugin processes; process supervision is layered on top so protocol
-//! tests can stay deterministic and backend-neutral.
+//! This module owns ADR-002 one-line JSON-RPC framing, plugin process
+//! supervision, and ADR-007 bounded long-lived worker pools.
 
 use crate::cgroup::{IsolationBackend, IsolationError, PluginIsolationProfile};
 use crate::envelope::{JsonRpcError, JsonRpcRequest, JsonRpcResponse};
@@ -85,6 +84,7 @@ pub struct PluginPoolConfig {
     kind: PluginKind,
     max_processes: usize,
     queue_bound: usize,
+    max_requests_per_worker: usize,
 }
 
 /// Bounded plugin pool dispatcher.
@@ -120,6 +120,7 @@ struct PluginWorker {
     stdin: ChildStdin,
     stdout_rx: mpsc::Receiver<std::io::Result<Vec<u8>>>,
     stderr_reader: Option<thread::JoinHandle<std::io::Result<Vec<u8>>>>,
+    completed_requests: usize,
 }
 
 /// Protocol-layer host errors.
@@ -433,8 +434,9 @@ impl PluginPoolConfig {
     pub fn new(kind: PluginKind) -> Self {
         Self {
             kind,
-            max_processes: 1,
+            max_processes: 2,
             queue_bound: 32,
+            max_requests_per_worker: 200,
         }
     }
 
@@ -449,6 +451,13 @@ impl PluginPoolConfig {
     #[must_use]
     pub fn with_queue_bound(mut self, queue_bound: usize) -> Self {
         self.queue_bound = queue_bound;
+        self
+    }
+
+    /// Set the number of successful calls before a worker is recycled.
+    #[must_use]
+    pub fn with_max_requests_per_worker(mut self, max_requests_per_worker: usize) -> Self {
+        self.max_requests_per_worker = max_requests_per_worker;
         self
     }
 
@@ -472,6 +481,11 @@ impl PluginPool {
         if config.max_processes == 0 {
             return Err(PluginHostError::InvalidPoolConfig(
                 "max_processes must be greater than zero".to_owned(),
+            ));
+        }
+        if config.max_requests_per_worker == 0 {
+            return Err(PluginHostError::InvalidPoolConfig(
+                "max_requests_per_worker must be greater than zero".to_owned(),
             ));
         }
         Ok(Self {
@@ -506,7 +520,7 @@ impl PluginPool {
         let result = worker.call(request, timeout, self.launch.limits, id);
         match result {
             Ok(response) => {
-                self.release_worker(worker);
+                self.release_or_recycle_worker(worker);
                 Ok(response)
             }
             Err(error) => {
@@ -553,7 +567,7 @@ impl PluginPool {
             Ok(response_bytes) => {
                 let response = decode_response_line(&response_bytes, id, self.launch.limits)?;
                 memo.insert(key, response_bytes)?;
-                self.release_worker(worker);
+                self.release_or_recycle_worker(worker);
                 Ok(response)
             }
             Err(error) => {
@@ -605,6 +619,14 @@ impl PluginPool {
         if let Ok(mut inner) = self.state.inner.lock() {
             inner.workers.push(worker);
             self.state.available.notify_one();
+        }
+    }
+
+    fn release_or_recycle_worker(&self, worker: PluginWorker) {
+        if worker.completed_requests >= self.config.max_requests_per_worker {
+            self.drop_worker(worker);
+        } else {
+            self.release_worker(worker);
         }
     }
 
@@ -852,6 +874,7 @@ impl PluginWorker {
             stdin,
             stdout_rx,
             stderr_reader,
+            completed_requests: 0,
         })
     }
 
@@ -883,6 +906,7 @@ impl PluginWorker {
         match self.stdout_rx.recv_timeout(timeout) {
             Ok(Ok(response)) => {
                 enforce_payload_limit(response.len(), limits.max_payload_bytes)?;
+                self.completed_requests = self.completed_requests.saturating_add(1);
                 Ok(response)
             }
             Ok(Err(error)) => Err(PluginHostError::Io(error)),
