@@ -5,6 +5,7 @@ members = [
     "crates/polyref-checker-spi",
     "crates/polyref-graph",
     "crates/polyref-loader",
+    "plugins/extractor-openapi",
 ]
 
 [workspace.package]
@@ -32,6 +33,8 @@ unimplemented = "allow"
 [workspace.dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+serde_yaml_ng = "0.10"
+indexmap = "=2.2.6"
 sha2 = "0.10"
 tempfile = "3.10"
 thiserror = "1.0"
