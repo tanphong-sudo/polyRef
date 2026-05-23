@@ -118,7 +118,7 @@ struct PoolInner {
 struct PluginWorker {
     child: Child,
     stdin: ChildStdin,
-    stdout_rx: mpsc::Receiver<std::io::Result<Vec<u8>>>,
+    stdout_rx: mpsc::Receiver<Result<Vec<u8>, PluginHostError>>,
     stderr_reader: Option<thread::JoinHandle<std::io::Result<Vec<u8>>>>,
     completed_requests: usize,
 }
@@ -747,7 +747,7 @@ fn run_plugin_request_line(
         command.env(key, value);
     }
 
-    let mut child = command.spawn()?;
+    let mut child = spawn_plugin_process(command)?;
     let mut stdin = child.stdin.take().ok_or_else(|| {
         PluginHostError::Io(std::io::Error::new(
             std::io::ErrorKind::BrokenPipe,
@@ -820,7 +820,7 @@ impl PluginWorker {
             command.env(key, value);
         }
 
-        let mut child = command.spawn()?;
+        let mut child = spawn_plugin_process(command)?;
         let stdin = child.stdin.take().ok_or_else(|| {
             PluginHostError::Io(std::io::Error::new(
                 std::io::ErrorKind::BrokenPipe,
@@ -840,21 +840,13 @@ impl PluginWorker {
             ))
         })?;
         let (stdout_tx, stdout_rx) = mpsc::channel();
-        let stdout_cap = config.limits.max_payload_bytes.saturating_add(1);
+        let stdout_limit = config.limits.max_payload_bytes;
         thread::spawn(move || {
             let mut reader = BufReader::new(stdout);
             loop {
-                let mut line = Vec::new();
-                match reader.read_until(b'\n', &mut line) {
-                    Ok(0) => break,
-                    Ok(_) => {
-                        if line.len() > stdout_cap {
-                            let _ = stdout_tx.send(Err(std::io::Error::new(
-                                std::io::ErrorKind::InvalidData,
-                                "plugin stdout line exceeds cap",
-                            )));
-                            break;
-                        }
+                match read_line_capped(&mut reader, stdout_limit) {
+                    Ok(None) => break,
+                    Ok(Some(line)) => {
                         if stdout_tx.send(Ok(line)).is_err() {
                             break;
                         }
@@ -909,7 +901,7 @@ impl PluginWorker {
                 self.completed_requests = self.completed_requests.saturating_add(1);
                 Ok(response)
             }
-            Ok(Err(error)) => Err(PluginHostError::Io(error)),
+            Ok(Err(error)) => Err(error),
             Err(mpsc::RecvTimeoutError::Timeout) => {
                 self.kill_and_wait();
                 Err(PluginHostError::Timeout {
@@ -1018,6 +1010,64 @@ fn read_capped<R: Read>(mut reader: R, cap: usize) -> std::io::Result<Vec<u8>> {
         buffer.extend_from_slice(&chunk[..n]);
     }
     Ok(buffer)
+}
+
+fn spawn_plugin_process(mut command: Command) -> Result<Child, PluginHostError> {
+    const MAX_SPAWN_ATTEMPTS: usize = 6;
+    for attempt in 0..MAX_SPAWN_ATTEMPTS {
+        match command.spawn() {
+            Ok(child) => return Ok(child),
+            Err(error) if is_executable_busy(&error) && attempt + 1 < MAX_SPAWN_ATTEMPTS => {
+                thread::sleep(Duration::from_millis(10));
+            }
+            Err(error) => return Err(PluginHostError::Io(error)),
+        }
+    }
+    unreachable!("spawn loop always returns before exhausting attempts")
+}
+
+fn is_executable_busy(error: &std::io::Error) -> bool {
+    #[cfg(unix)]
+    {
+        error.raw_os_error() == Some(26)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = error;
+        false
+    }
+}
+
+fn read_line_capped<R: BufRead>(
+    reader: &mut R,
+    limit: usize,
+) -> Result<Option<Vec<u8>>, PluginHostError> {
+    let mut line = Vec::new();
+    loop {
+        let available = reader.fill_buf().map_err(PluginHostError::Io)?;
+        if available.is_empty() {
+            return if line.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(line))
+            };
+        }
+        let take = available
+            .iter()
+            .position(|byte| *byte == b'\n')
+            .map_or(available.len(), |index| index + 1);
+        if line.len().saturating_add(take) > limit {
+            return Err(PluginHostError::PayloadTooLarge {
+                limit,
+                actual: limit.saturating_add(1),
+            });
+        }
+        line.extend_from_slice(&available[..take]);
+        reader.consume(take);
+        if line.ends_with(b"\n") {
+            return Ok(Some(line));
+        }
+    }
 }
 
 fn join_reader(

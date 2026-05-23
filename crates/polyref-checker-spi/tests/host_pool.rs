@@ -134,6 +134,38 @@ fn bounded_pool_rejects_when_active_and_queue_full() {
 }
 
 #[test]
+fn pool_rejects_oversized_response_without_newline() {
+    let fixture = PluginFixture::new("oversized", OVERSIZED_NO_NEWLINE_PLUGIN);
+    let launch = PluginLaunchConfig::new(PluginBinary::new(fixture.path(), "digest-1").unwrap())
+        .with_limits(polyref_checker_spi::limits::Limits {
+            max_payload_bytes: 64,
+            ..polyref_checker_spi::limits::Limits::default()
+        });
+    let config = PluginPoolConfig::new(PluginKind::Extractor)
+        .with_max_processes(1)
+        .with_queue_bound(0);
+    let pool = PluginPool::new(config, launch).unwrap();
+    let id = PluginRequestId::new("req-oversized").unwrap();
+
+    let err = pool
+        .call(
+            PluginMethod::Extract,
+            &id,
+            json!({}),
+            Duration::from_secs(2),
+        )
+        .unwrap_err();
+
+    assert!(matches!(
+        err,
+        PluginHostError::PayloadTooLarge {
+            limit: 64,
+            actual: 65..
+        }
+    ));
+}
+
+#[test]
 fn pools_are_isolated_by_kind() {
     let fixture = PluginFixture::new("echo", ECHO_PLUGIN);
     let extractor = pool_for(fixture.path(), PluginKind::Extractor, 1, 0);
@@ -219,4 +251,8 @@ while IFS= read -r line; do
   id=$(printf '%s' "$line" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
   printf '{"jsonrpc":"2.0","id":"%s","result":{"count":%s}}\n' "$id" "$count"
 done
+"#;
+
+const OVERSIZED_NO_NEWLINE_PLUGIN: &str = r#"#!/bin/sh
+printf '%065d' 0
 "#;
