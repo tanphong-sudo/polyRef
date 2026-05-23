@@ -64,6 +64,46 @@ fn pool_reuses_long_lived_worker_process() {
 }
 
 #[test]
+fn pool_recycles_worker_after_configured_request_count() {
+    let fixture = PluginFixture::new("counter", COUNTER_PLUGIN);
+    let launch = PluginLaunchConfig::new(PluginBinary::new(fixture.path(), "digest-1").unwrap());
+    let config = PluginPoolConfig::new(PluginKind::Extractor)
+        .with_max_processes(1)
+        .with_queue_bound(0)
+        .with_max_requests_per_worker(2);
+    let pool = PluginPool::new(config, launch).unwrap();
+
+    let first = pool
+        .call(
+            PluginMethod::Extract,
+            &PluginRequestId::new("req-1").unwrap(),
+            json!({}),
+            Duration::from_secs(2),
+        )
+        .unwrap();
+    let second = pool
+        .call(
+            PluginMethod::Extract,
+            &PluginRequestId::new("req-2").unwrap(),
+            json!({}),
+            Duration::from_secs(2),
+        )
+        .unwrap();
+    let third = pool
+        .call(
+            PluginMethod::Extract,
+            &PluginRequestId::new("req-3").unwrap(),
+            json!({}),
+            Duration::from_secs(2),
+        )
+        .unwrap();
+
+    assert_eq!(first.result.unwrap(), json!({"count": 1}));
+    assert_eq!(second.result.unwrap(), json!({"count": 2}));
+    assert_eq!(third.result.unwrap(), json!({"count": 1}));
+}
+
+#[test]
 fn bounded_pool_rejects_when_active_and_queue_full() {
     let fixture = PluginFixture::new("sleep", SLEEP_PLUGIN);
     let pool = std::sync::Arc::new(pool_for(fixture.path(), PluginKind::Extractor, 1, 0));
