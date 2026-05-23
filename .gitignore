@@ -17,6 +17,8 @@ claude/
 gpt/
 gpt-review.md
 temp/
+implementation-notes.md
+quality-gate.sh
 
 # Paper source (not shipped)
 *.pdf
