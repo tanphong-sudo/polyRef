@@ -83,6 +83,144 @@ fn content_hash_mismatch_fails_closed_before_parse() {
 }
 
 #[test]
+fn dynamic_route_metadata_emits_unsupported_note_without_route_fact() {
+    let dir = fixture_with_ts(
+        r#"export const route = {
+  method: "POST",
+  path: `/v2/${segment}`,
+  operationId: "createDynamic",
+  handler: "createDynamic",
+} as const;
+
+export async function createDynamic() {
+  return {};
+}
+"#,
+    );
+    let request = request_for_temp(&dir, "src/users.ts");
+
+    let result = polyref_extractor_typescript::extract_typescript(dir.path(), &request).unwrap();
+
+    assert_eq!(result.entities.len(), 1);
+    assert!(result.local_facts.is_empty());
+    assert_eq!(result.unsupported_features.len(), 1);
+    assert_eq!(result.unsupported_features[0].feature, "dynamic_route");
+}
+
+#[test]
+fn dynamic_handler_expression_emits_unsupported_note_without_route_fact() {
+    let dir = fixture_with_ts(
+        r#"const selectedHandler = "createDynamic";
+
+export const route = {
+  method: "POST",
+  path: "/dynamic",
+  operationId: "createDynamic",
+  handler: selectedHandler,
+} as const;
+
+export async function createDynamic() {
+  return {};
+}
+"#,
+    );
+    let request = request_for_temp(&dir, "src/users.ts");
+
+    let result = polyref_extractor_typescript::extract_typescript(dir.path(), &request).unwrap();
+
+    assert!(result.entities.is_empty());
+    assert!(result.local_facts.is_empty());
+    assert_eq!(result.unsupported_features.len(), 1);
+    assert_eq!(result.unsupported_features[0].feature, "dynamic_route");
+}
+
+#[test]
+fn dynamic_method_expression_emits_unsupported_note_without_route_fact() {
+    let dir = fixture_with_ts(
+        r#"const selectedMethod = "POST";
+
+export const route = {
+  method: selectedMethod,
+  path: "/dynamic-method",
+  operationId: "createDynamic",
+  handler: "createDynamic",
+} as const;
+
+export async function createDynamic() {
+  return {};
+}
+"#,
+    );
+    let request = request_for_temp(&dir, "src/users.ts");
+
+    let result = polyref_extractor_typescript::extract_typescript(dir.path(), &request).unwrap();
+
+    assert_eq!(result.entities.len(), 1);
+    assert!(result.local_facts.is_empty());
+    assert_eq!(result.unsupported_features.len(), 1);
+    assert_eq!(result.unsupported_features[0].feature, "dynamic_route");
+}
+
+#[test]
+fn malformed_typescript_fails_closed() {
+    let dir = fixture_with_ts("export async function broken( {");
+    let request = request_for_temp(&dir, "src/users.ts");
+
+    let err = polyref_extractor_typescript::extract_typescript(dir.path(), &request).unwrap_err();
+
+    assert!(format!("{err}").contains("parse"));
+}
+
+#[test]
+fn duplicate_route_metadata_fails_closed() {
+    let dir = fixture_with_ts(
+        r#"export const route = {
+  method: "POST",
+  path: "/users",
+  operationId: "createUser",
+  handler: "createUser",
+} as const;
+
+export const route2 = {
+  method: "POST",
+  path: "/users2",
+  operationId: "createUser2",
+  handler: "createUser2",
+} as const;
+
+export async function createUser() { return {}; }
+export async function createUser2() { return {}; }
+"#,
+    );
+    let request = request_for_temp(&dir, "src/users.ts");
+
+    let err = polyref_extractor_typescript::extract_typescript(dir.path(), &request).unwrap_err();
+
+    assert!(format!("{err}").contains("duplicate route metadata"));
+}
+
+#[test]
+fn duplicate_exported_handler_fails_closed() {
+    let dir = fixture_with_ts(
+        r#"export const route = {
+  method: "POST",
+  path: "/users",
+  operationId: "createUser",
+  handler: "createUser",
+} as const;
+
+export async function createUser() { return {}; }
+export function createUser() { return {}; }
+"#,
+    );
+    let request = request_for_temp(&dir, "src/users.ts");
+
+    let err = polyref_extractor_typescript::extract_typescript(dir.path(), &request).unwrap_err();
+
+    assert!(format!("{err}").contains("duplicate exported handler"));
+}
+
+#[test]
 fn json_rpc_adapter_returns_extract_result_line() {
     let expected = expected_fixture();
     let artifact = ts_artifact(&expected, "old");
@@ -193,7 +331,6 @@ fn assert_single_handler(
     assert_eq!(fact["handler_export"], expected.export);
 }
 
-#[allow(dead_code)]
 fn fixture_with_ts(contents: &str) -> TempDir {
     let dir = tempfile::tempdir().unwrap();
     fs::create_dir_all(dir.path().join("src")).unwrap();
@@ -201,7 +338,6 @@ fn fixture_with_ts(contents: &str) -> TempDir {
     dir
 }
 
-#[allow(dead_code)]
 fn request_for_temp(dir: &TempDir, path: &str) -> ExtractRequest {
     let bytes = fs::read(dir.path().join(path)).unwrap();
     ExtractRequest {
