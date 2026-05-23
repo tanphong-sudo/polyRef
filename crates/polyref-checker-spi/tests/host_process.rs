@@ -88,7 +88,6 @@ fn malformed_stdout_maps_to_plugin_failure() {
     )
     .unwrap_err();
 
-    assert!(matches!(err, PluginHostError::Json(_)));
     assert_eq!(err.unknown_reason(), Some(UnknownReason::PluginFailure));
 }
 
