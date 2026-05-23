@@ -15,6 +15,7 @@ pub mod error;
 pub mod extractor;
 pub mod host;
 pub mod limits;
+pub mod memo;
 
 pub use cgroup::{IsolationBackend, IsolationError, PluginIsolationProfile, SeccompPolicy};
 pub use checker::{CheckRequest, CheckResult, DescribeResult, EndpointArg};
@@ -23,7 +24,7 @@ pub use error::SpiError;
 pub use extractor::{ExtractRequest, ExtractResult, ExtractedEntity, UnsupportedFeatureNote};
 pub use host::{
     decode_response_line, encode_request_line, run_plugin_call, PluginBinary, PluginHostError,
-    PluginKind, PluginLaunchConfig, PluginMemoKey, PluginMemoStore, PluginMethod, PluginPool,
-    PluginPoolConfig,
+    PluginKind, PluginLaunchConfig, PluginMethod, PluginPool, PluginPoolConfig,
 };
 pub use limits::{Limits, LimitsError, SafePath, SafePathError};
+pub use memo::{PluginMemoKey, PluginMemoStore};
