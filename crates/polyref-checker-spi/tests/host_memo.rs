@@ -31,8 +31,8 @@ fn memo_key_is_deterministic_for_same_request_and_digest() {
 #[test]
 fn memo_key_changes_when_plugin_digest_changes() {
     let id = PluginRequestId::new("req-1").unwrap();
-    let bytes = encode_request_payload(PluginMethod::Check, &id, json!({}), Limits::default())
-        .unwrap();
+    let bytes =
+        encode_request_payload(PluginMethod::Check, &id, json!({}), Limits::default()).unwrap();
 
     let first = PluginMemoKey::new(
         PluginMethod::Check,
@@ -53,8 +53,8 @@ fn memo_key_changes_when_plugin_digest_changes() {
 #[test]
 fn memo_key_changes_when_protocol_version_changes() {
     let id = PluginRequestId::new("req-1").unwrap();
-    let bytes = encode_request_payload(PluginMethod::Describe, &id, json!({}), Limits::default())
-        .unwrap();
+    let bytes =
+        encode_request_payload(PluginMethod::Describe, &id, json!({}), Limits::default()).unwrap();
     let binary = PluginBinary::new("/tmp/plugin", "digest-a").unwrap();
 
     let first = PluginMemoKey::new(PluginMethod::Describe, &bytes, &binary, "0.1.0");
@@ -66,8 +66,8 @@ fn memo_key_changes_when_protocol_version_changes() {
 #[test]
 fn memo_store_replays_exact_response_bytes() {
     let id = PluginRequestId::new("req-1").unwrap();
-    let bytes = encode_request_payload(PluginMethod::Extract, &id, json!({}), Limits::default())
-        .unwrap();
+    let bytes =
+        encode_request_payload(PluginMethod::Extract, &id, json!({}), Limits::default()).unwrap();
     let binary = PluginBinary::new("/tmp/plugin", "digest-a").unwrap();
     let key = PluginMemoKey::new(PluginMethod::Extract, &bytes, &binary, "0.1.0");
     let response = b"{\"jsonrpc\":\"2.0\",\"id\":\"req-1\",\"result\":{}}".to_vec();
@@ -155,7 +155,7 @@ impl PoolPluginFixture {
 }
 
 const POOL_ECHO_PLUGIN: &str = r#"#!/bin/sh
-line=$(cat)
+IFS= read -r line
 id=$(printf '%s' "$line" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
 printf '{"jsonrpc":"2.0","id":"%s","result":{"cached":true}}\n' "$id"
 "#;

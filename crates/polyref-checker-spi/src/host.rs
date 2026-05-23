@@ -12,9 +12,10 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fmt;
-use std::io::{Read, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::mpsc;
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -83,23 +84,38 @@ pub struct PluginPoolConfig {
 }
 
 /// Bounded plugin pool dispatcher.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct PluginPool {
     config: PluginPoolConfig,
     launch: PluginLaunchConfig,
     state: Arc<PoolState>,
 }
 
-#[derive(Debug)]
 struct PoolState {
-    counts: Mutex<PoolCounts>,
+    inner: Mutex<PoolInner>,
     available: Condvar,
 }
 
-#[derive(Debug, Default)]
-struct PoolCounts {
-    active: usize,
+impl fmt::Debug for PluginPool {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PluginPool")
+            .field("config", &self.config)
+            .field("launch", &self.launch)
+            .finish_non_exhaustive()
+    }
+}
+
+struct PoolInner {
+    workers: Vec<PluginWorker>,
+    live_total: usize,
     waiting: usize,
+}
+
+struct PluginWorker {
+    child: Child,
+    stdin: ChildStdin,
+    stdout_rx: mpsc::Receiver<std::io::Result<Vec<u8>>>,
+    stderr_reader: Option<thread::JoinHandle<std::io::Result<Vec<u8>>>>,
 }
 
 /// Protocol-layer host errors.
@@ -416,7 +432,11 @@ impl PluginPool {
             config,
             launch,
             state: Arc::new(PoolState {
-                counts: Mutex::new(PoolCounts::default()),
+                inner: Mutex::new(PoolInner {
+                    workers: Vec::new(),
+                    live_total: 0,
+                    waiting: 0,
+                }),
                 available: Condvar::new(),
             }),
         })
@@ -435,8 +455,19 @@ impl PluginPool {
         params: Value,
         timeout: Duration,
     ) -> Result<JsonRpcResponse, PluginHostError> {
-        let _permit = self.acquire_permit()?;
-        run_plugin_call(&self.launch, method, id, params, timeout)
+        let request = encode_request_line(method, id, params, self.launch.limits)?;
+        let mut worker = self.acquire_worker()?;
+        let result = worker.call(request, timeout, self.launch.limits, id);
+        match result {
+            Ok(response) => {
+                self.release_worker(worker);
+                Ok(response)
+            }
+            Err(error) => {
+                self.drop_worker(worker);
+                Err(error)
+            }
+        }
     }
 
     /// Run one bounded call through a memo store.
@@ -470,54 +501,79 @@ impl PluginPool {
         }
         let mut request_line = request_payload;
         request_line.push(b'\n');
-        let _permit = self.acquire_permit()?;
-        let response_bytes = run_plugin_request_line(&self.launch, request_line, timeout)?;
-        let response = decode_response_line(&response_bytes, id, self.launch.limits)?;
-        memo.insert(key, response_bytes)?;
-        Ok(response)
+        let mut worker = self.acquire_worker()?;
+        let result = worker.call_raw(request_line, timeout, self.launch.limits);
+        match result {
+            Ok(response_bytes) => {
+                let response = decode_response_line(&response_bytes, id, self.launch.limits)?;
+                memo.insert(key, response_bytes)?;
+                self.release_worker(worker);
+                Ok(response)
+            }
+            Err(error) => {
+                self.drop_worker(worker);
+                Err(error)
+            }
+        }
     }
 
-    fn acquire_permit(&self) -> Result<PoolPermit<'_>, PluginHostError> {
-        let mut counts = self.state.counts.lock().map_err(|_| {
+    fn acquire_worker(&self) -> Result<PluginWorker, PluginHostError> {
+        let mut inner = self.state.inner.lock().map_err(|_| {
             PluginHostError::Io(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 "plugin pool mutex poisoned",
             ))
         })?;
-        if counts.active >= self.config.max_processes {
-            if counts.waiting >= self.config.queue_bound {
+        loop {
+            if let Some(worker) = inner.workers.pop() {
+                return Ok(worker);
+            }
+            if inner.live_total < self.config.max_processes {
+                inner.live_total += 1;
+                drop(inner);
+                return PluginWorker::spawn(&self.launch).map_err(|error| {
+                    self.worker_spawn_failed();
+                    error
+                });
+            }
+            if inner.waiting >= self.config.queue_bound {
                 return Err(PluginHostError::Backpressure {
                     kind: self.config.kind,
-                    active: counts.active,
-                    waiting: counts.waiting,
+                    active: inner.live_total,
+                    waiting: inner.waiting,
                     queue_bound: self.config.queue_bound,
                 });
             }
-            counts.waiting += 1;
-            while counts.active >= self.config.max_processes {
-                counts = self.state.available.wait(counts).map_err(|_| {
-                    PluginHostError::Io(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        "plugin pool mutex poisoned",
-                    ))
-                })?;
-            }
-            counts.waiting -= 1;
+            inner.waiting += 1;
+            inner = self.state.available.wait(inner).map_err(|_| {
+                PluginHostError::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "plugin pool mutex poisoned",
+                ))
+            })?;
+            inner.waiting = inner.waiting.saturating_sub(1);
         }
-        counts.active += 1;
-        Ok(PoolPermit { pool: self })
     }
-}
 
-struct PoolPermit<'a> {
-    pool: &'a PluginPool,
-}
+    fn release_worker(&self, worker: PluginWorker) {
+        if let Ok(mut inner) = self.state.inner.lock() {
+            inner.workers.push(worker);
+            self.state.available.notify_one();
+        }
+    }
 
-impl Drop for PoolPermit<'_> {
-    fn drop(&mut self) {
-        if let Ok(mut counts) = self.pool.state.counts.lock() {
-            counts.active = counts.active.saturating_sub(1);
-            self.pool.state.available.notify_one();
+    fn drop_worker(&self, mut worker: PluginWorker) {
+        worker.kill_and_wait();
+        if let Ok(mut inner) = self.state.inner.lock() {
+            inner.live_total = inner.live_total.saturating_sub(1);
+            self.state.available.notify_one();
+        }
+    }
+
+    fn worker_spawn_failed(&self) {
+        if let Ok(mut inner) = self.state.inner.lock() {
+            inner.live_total = inner.live_total.saturating_sub(1);
+            self.state.available.notify_one();
         }
     }
 }
@@ -598,11 +654,7 @@ impl PluginMemoStore {
     ///
     /// Returns [`PluginHostError::PayloadTooLarge`] when the response exceeds
     /// the configured cap.
-    pub fn insert(
-        &mut self,
-        key: PluginMemoKey,
-        response: Vec<u8>,
-    ) -> Result<(), PluginHostError> {
+    pub fn insert(&mut self, key: PluginMemoKey, response: Vec<u8>) -> Result<(), PluginHostError> {
         enforce_payload_limit(response.len(), self.response_limit_bytes)?;
         self.responses.insert(key, response);
         Ok(())
@@ -764,6 +816,144 @@ fn run_plugin_request_line(
     Ok(stdout)
 }
 
+impl PluginWorker {
+    fn spawn(config: &PluginLaunchConfig) -> Result<Self, PluginHostError> {
+        let mut command = Command::new(config.binary.path());
+        command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .env_clear();
+        if let Some(cwd) = &config.cwd {
+            command.current_dir(cwd);
+        }
+        for (key, value) in &config.env {
+            command.env(key, value);
+        }
+
+        let mut child = command.spawn()?;
+        let stdin = child.stdin.take().ok_or_else(|| {
+            PluginHostError::Io(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "plugin stdin unavailable",
+            ))
+        })?;
+        let stdout = child.stdout.take().ok_or_else(|| {
+            PluginHostError::Io(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "plugin stdout unavailable",
+            ))
+        })?;
+        let stderr = child.stderr.take().ok_or_else(|| {
+            PluginHostError::Io(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "plugin stderr unavailable",
+            ))
+        })?;
+        let (stdout_tx, stdout_rx) = mpsc::channel();
+        let stdout_cap = config.limits.max_payload_bytes.saturating_add(1);
+        thread::spawn(move || {
+            let mut reader = BufReader::new(stdout);
+            loop {
+                let mut line = Vec::new();
+                match reader.read_until(b'\n', &mut line) {
+                    Ok(0) => break,
+                    Ok(_) => {
+                        if line.len() > stdout_cap {
+                            let _ = stdout_tx.send(Err(std::io::Error::new(
+                                std::io::ErrorKind::InvalidData,
+                                "plugin stdout line exceeds cap",
+                            )));
+                            break;
+                        }
+                        if stdout_tx.send(Ok(line)).is_err() {
+                            break;
+                        }
+                    }
+                    Err(error) => {
+                        let _ = stdout_tx.send(Err(error));
+                        break;
+                    }
+                }
+            }
+        });
+        let stderr_cap = config.stderr_cap_bytes;
+        let stderr_reader = Some(thread::spawn(move || read_capped(stderr, stderr_cap)));
+
+        Ok(Self {
+            child,
+            stdin,
+            stdout_rx,
+            stderr_reader,
+        })
+    }
+
+    fn call(
+        &mut self,
+        request: Vec<u8>,
+        timeout: Duration,
+        limits: Limits,
+        expected_id: &PluginRequestId,
+    ) -> Result<JsonRpcResponse, PluginHostError> {
+        let response = self.call_raw(request, timeout, limits)?;
+        decode_response_line(&response, expected_id, limits)
+    }
+
+    fn call_raw(
+        &mut self,
+        request: Vec<u8>,
+        timeout: Duration,
+        limits: Limits,
+    ) -> Result<Vec<u8>, PluginHostError> {
+        if let Some(status) = self.child.try_wait()? {
+            return Err(PluginHostError::NonZeroExit {
+                code: status.code(),
+                stderr_bytes: self.stderr_len(),
+            });
+        }
+        self.stdin.write_all(&request)?;
+        self.stdin.flush()?;
+        match self.stdout_rx.recv_timeout(timeout) {
+            Ok(Ok(response)) => {
+                enforce_payload_limit(response.len(), limits.max_payload_bytes)?;
+                Ok(response)
+            }
+            Ok(Err(error)) => Err(PluginHostError::Io(error)),
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                self.kill_and_wait();
+                Err(PluginHostError::Timeout {
+                    timeout_ms: timeout.as_millis(),
+                })
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                let status = self.child.try_wait()?;
+                Err(PluginHostError::NonZeroExit {
+                    code: status.and_then(|status| status.code()),
+                    stderr_bytes: self.stderr_len(),
+                })
+            }
+        }
+    }
+
+    fn kill_and_wait(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+
+    fn stderr_len(&mut self) -> usize {
+        self.stderr_reader
+            .take()
+            .and_then(|reader| join_reader(reader).ok())
+            .map_or(0, |stderr| stderr.len())
+    }
+}
+
+impl Drop for PluginWorker {
+    fn drop(&mut self) {
+        self.kill_and_wait();
+    }
+}
+
 fn validate_response(
     response: &JsonRpcResponse,
     expected_id: &PluginRequestId,
@@ -842,13 +1032,15 @@ fn read_capped<R: Read>(mut reader: R, cap: usize) -> std::io::Result<Vec<u8>> {
 fn join_reader(
     reader: thread::JoinHandle<std::io::Result<Vec<u8>>>,
 ) -> Result<Vec<u8>, PluginHostError> {
-    reader.join().map_err(|_| {
-        PluginHostError::Io(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "plugin reader thread panicked",
-        ))
-    })?
-    .map_err(PluginHostError::Io)
+    reader
+        .join()
+        .map_err(|_| {
+            PluginHostError::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "plugin reader thread panicked",
+            ))
+        })?
+        .map_err(PluginHostError::Io)
 }
 
 #[allow(dead_code)]

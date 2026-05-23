@@ -24,10 +24,43 @@ fn bounded_pool_runs_echo_call() {
     let id = PluginRequestId::new("req-1").unwrap();
 
     let response = pool
-        .call(PluginMethod::Extract, &id, json!({}), Duration::from_secs(2))
+        .call(
+            PluginMethod::Extract,
+            &id,
+            json!({}),
+            Duration::from_secs(2),
+        )
         .unwrap();
 
     assert_eq!(response.result.unwrap(), json!({"ok": true}));
+}
+
+#[test]
+fn pool_reuses_long_lived_worker_process() {
+    let fixture = PluginFixture::new("counter", COUNTER_PLUGIN);
+    let pool = pool_for(fixture.path(), PluginKind::Extractor, 1, 0);
+    let first_id = PluginRequestId::new("req-1").unwrap();
+    let second_id = PluginRequestId::new("req-2").unwrap();
+
+    let first = pool
+        .call(
+            PluginMethod::Extract,
+            &first_id,
+            json!({}),
+            Duration::from_secs(2),
+        )
+        .unwrap();
+    let second = pool
+        .call(
+            PluginMethod::Extract,
+            &second_id,
+            json!({}),
+            Duration::from_secs(2),
+        )
+        .unwrap();
+
+    assert_eq!(first.result.unwrap(), json!({"count": 1}));
+    assert_eq!(second.result.unwrap(), json!({"count": 2}));
 }
 
 #[test]
@@ -37,13 +70,23 @@ fn bounded_pool_rejects_when_active_and_queue_full() {
     let first_pool = std::sync::Arc::clone(&pool);
     let first = thread::spawn(move || {
         let id = PluginRequestId::new("req-1").unwrap();
-        first_pool.call(PluginMethod::Extract, &id, json!({}), Duration::from_secs(2))
+        first_pool.call(
+            PluginMethod::Extract,
+            &id,
+            json!({}),
+            Duration::from_secs(2),
+        )
     });
     thread::sleep(Duration::from_millis(100));
 
     let id = PluginRequestId::new("req-2").unwrap();
     let err = pool
-        .call(PluginMethod::Extract, &id, json!({}), Duration::from_millis(200))
+        .call(
+            PluginMethod::Extract,
+            &id,
+            json!({}),
+            Duration::from_millis(200),
+        )
         .unwrap_err();
 
     assert!(matches!(err, PluginHostError::Backpressure { .. }));
@@ -64,10 +107,20 @@ fn pools_are_isolated_by_kind() {
     let id_b = PluginRequestId::new("req-b").unwrap();
 
     let a = extractor
-        .call(PluginMethod::Extract, &id_a, json!({}), Duration::from_secs(2))
+        .call(
+            PluginMethod::Extract,
+            &id_a,
+            json!({}),
+            Duration::from_secs(2),
+        )
         .unwrap();
     let b = checker
-        .call(PluginMethod::Check, &id_b, json!({}), Duration::from_secs(2))
+        .call(
+            PluginMethod::Check,
+            &id_b,
+            json!({}),
+            Duration::from_secs(2),
+        )
         .unwrap();
 
     assert_eq!(a.result.unwrap(), json!({"ok": true}));
@@ -107,14 +160,23 @@ impl PluginFixture {
 }
 
 const ECHO_PLUGIN: &str = r#"#!/bin/sh
-line=$(cat)
+IFS= read -r line
 id=$(printf '%s' "$line" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
 printf '{"jsonrpc":"2.0","id":"%s","result":{"ok":true}}\n' "$id"
 "#;
 
 const SLEEP_PLUGIN: &str = r#"#!/bin/sh
-line=$(cat)
+IFS= read -r line
 id=$(printf '%s' "$line" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
 sleep 1
 printf '{"jsonrpc":"2.0","id":"%s","result":{"ok":true}}\n' "$id"
+"#;
+
+const COUNTER_PLUGIN: &str = r#"#!/bin/sh
+count=0
+while IFS= read -r line; do
+  count=$((count + 1))
+  id=$(printf '%s' "$line" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
+  printf '{"jsonrpc":"2.0","id":"%s","result":{"count":%s}}\n' "$id" "$count"
+done
 "#;

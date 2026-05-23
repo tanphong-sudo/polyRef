@@ -8,16 +8,16 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
-pub mod checker;
 pub mod cgroup;
+pub mod checker;
 pub mod envelope;
 pub mod error;
 pub mod extractor;
 pub mod host;
 pub mod limits;
 
-pub use checker::{CheckRequest, CheckResult, DescribeResult, EndpointArg};
 pub use cgroup::{IsolationBackend, IsolationError, PluginIsolationProfile, SeccompPolicy};
+pub use checker::{CheckRequest, CheckResult, DescribeResult, EndpointArg};
 pub use envelope::{JsonRpcEnvelopeError, JsonRpcError, JsonRpcRequest, JsonRpcResponse};
 pub use error::SpiError;
 pub use extractor::{ExtractRequest, ExtractResult, ExtractedEntity, UnsupportedFeatureNote};

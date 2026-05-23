@@ -137,7 +137,7 @@ impl PluginFixture {
 }
 
 const ECHO_PLUGIN: &str = r#"#!/bin/sh
-line=$(cat)
+IFS= read -r line
 id=$(printf '%s' "$line" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
 method=$(printf '%s' "$line" | sed -n 's/.*"method":"\([^"]*\)".*/\1/p')
 printf '{"jsonrpc":"2.0","id":"%s","result":{"echo":"%s"}}\n' "$id" "$method"

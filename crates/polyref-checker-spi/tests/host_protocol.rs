@@ -23,7 +23,8 @@ fn request_line_is_deterministic_single_line_json() {
     let id = PluginRequestId::new("req-1").unwrap();
     let params = json!({"z": 1, "a": 2});
 
-    let first = encode_request_line(PluginMethod::Check, &id, params.clone(), Limits::default()).unwrap();
+    let first =
+        encode_request_line(PluginMethod::Check, &id, params.clone(), Limits::default()).unwrap();
     let second = encode_request_line(PluginMethod::Check, &id, params, Limits::default()).unwrap();
 
     assert_eq!(first, second);
@@ -86,12 +87,8 @@ fn response_line_rejects_result_and_error_together() {
 #[test]
 fn response_line_rejects_lsp_style_framing() {
     let id = PluginRequestId::new("req-1").unwrap();
-    let err = decode_response_line(
-        b"Content-Length: 2\r\n\r\n{}",
-        &id,
-        Limits::default(),
-    )
-    .unwrap_err();
+    let err =
+        decode_response_line(b"Content-Length: 2\r\n\r\n{}", &id, Limits::default()).unwrap_err();
 
     assert!(matches!(err, PluginHostError::MalformedResponse(_)));
 }
