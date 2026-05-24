@@ -1,4 +1,4 @@
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use polyref_checker_spi::extractor::{ExtractRequest, UnsupportedFeatureNote};
 use polyref_checker_spi::limits::SafePath;
@@ -82,6 +82,88 @@ fn layer4_fixture_outputs_build_graph_rows_and_route_correspondences() {
         &expected.entities.new_route.id,
         &expected.entities.new_handler.id,
     );
+}
+
+#[test]
+fn duplicate_identical_facts_are_deduplicated_deterministically() {
+    let expected = expected_fixture();
+    let store = migrated_store();
+    let mut bundles = fixture_bundles(&expected);
+    for bundle in &mut bundles {
+        if let Some(fact) = bundle.result.local_facts.first().cloned() {
+            bundle.result.local_facts.push(fact);
+        }
+    }
+
+    let result = build_extractor_graph(&store, &bundles).unwrap();
+
+    assert_eq!(result.correspondences.len(), 2);
+    assert_eq!(store.count_correspondences().unwrap(), 2);
+}
+
+#[test]
+fn conflicting_duplicate_route_fact_fails_closed() {
+    let expected = expected_fixture();
+    let store = migrated_store();
+    let mut bundles = fixture_bundles(&expected);
+    let openapi = bundle_mut(&mut bundles, "old", "openapi");
+    let mut conflict = openapi.result.local_facts[0].clone();
+    conflict["entity_id"] =
+        json!("old:openapi:route:openapi.yaml#/paths/~1users/post:aaaaaaaaaaaa");
+    openapi.result.local_facts.push(conflict);
+
+    let err = build_extractor_graph(&store, &bundles).unwrap_err();
+
+    assert!(format!("{err}").contains("conflicting duplicate local fact"));
+}
+
+#[test]
+fn mismatched_endpoint_kind_fails_closed() {
+    let expected = expected_fixture();
+    let store = migrated_store();
+    let mut bundles = fixture_bundles(&expected);
+    let ts = bundle_mut(&mut bundles, "old", "ts");
+    ts.result.local_facts[0]["handler_entity_id"] = json!(expected.entities.old_route.id);
+
+    let err = build_extractor_graph(&store, &bundles).unwrap_err();
+
+    assert!(format!("{err}").contains("is not kind handler"));
+}
+
+#[test]
+fn malformed_local_fact_fails_closed() {
+    let expected = expected_fixture();
+    let store = migrated_store();
+    let mut bundles = fixture_bundles(&expected);
+    bundles[0]
+        .result
+        .local_facts
+        .push(json!({ "kind": "route" }));
+
+    let err = build_extractor_graph(&store, &bundles).unwrap_err();
+
+    assert!(format!("{err}").contains("invalid local fact"));
+}
+
+#[test]
+fn unsupported_features_are_preserved_without_creating_correspondence() {
+    let expected = expected_fixture();
+    let store = migrated_store();
+    let mut bundles = fixture_bundles(&expected);
+    let ts = bundle_mut(&mut bundles, "old", "ts");
+    let span = ts.result.entities[0].source_span.clone();
+    ts.result.local_facts.clear();
+    ts.result.unsupported_features.push(UnsupportedFeatureNote {
+        feature: "dynamic_route".to_owned(),
+        span,
+        note: Some("test unsupported route".to_owned()),
+    });
+
+    let result = build_extractor_graph(&store, &bundles).unwrap();
+
+    assert_eq!(result.unsupported_features.len(), 1);
+    assert_eq!(result.unsupported_features[0].feature, "dynamic_route");
+    assert_eq!(result.correspondences.len(), 1);
 }
 
 fn migrated_store() -> SqliteGraphStore {
