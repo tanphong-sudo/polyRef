@@ -7,6 +7,7 @@ members = [
     "crates/polyref-loader",
     "plugins/extractor-openapi",
     "plugins/extractor-typescript",
+    "plugins/checker-route",
 ]
 
 [workspace.package]
