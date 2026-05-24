@@ -77,13 +77,14 @@ Acceptance: dummy echo plugin succeeds; crashing plugin yields `Unknown(PluginFa
 
 | Component | Purpose |
 | --- | --- |
-| `plugins/extractor-typescript/` | tree-sitter + TypeScript Compiler API |
+| `plugins/extractor-typescript/` | Rust tree-sitter extractor for fixture-owned route metadata and handlers |
 | `plugins/extractor-openapi/` | OpenAPI 3.x parser + ref resolver |
-| `plugins/extractor-python/` | tree-sitter + AST fallback |
 | `crates/polyref-graph/src/builder.rs` | Normalize extractor outputs into `Correspondence` rows |
 | `plugins/checker-route/` | Route compat + migrate predicates |
 
-Acceptance: §2 fixture (`POST /users → /v2/users`) loads; route correspondence emerges; route checker returns `Migrated` after the canonical migration map is supplied.
+Acceptance: §2 fixture (`POST /users → /v2/users`) loads; side-local route correspondences emerge for old route→old handler and new route→new handler; route checker returns `Migrated` after the canonical migration map is supplied.
+
+Layer 4 intentionally covers the first OpenAPI + TypeScript route slice only. Python extraction remains future plugin work unless a later layer or fixture explicitly schedules it.
 
 ## Layer 5 — Migration + observation registry + frontier
 
