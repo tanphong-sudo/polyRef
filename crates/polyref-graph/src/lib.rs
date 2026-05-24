@@ -30,6 +30,7 @@
 
 pub mod audit;
 pub mod blobstore;
+pub mod builder;
 pub mod error;
 pub mod model;
 pub mod report_store;

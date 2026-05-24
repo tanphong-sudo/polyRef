@@ -323,7 +323,10 @@ dependencies = [
 name = "polyref-graph"
 version = "0.1.0"
 dependencies = [
+ "polyref-checker-spi",
  "polyref-core",
+ "polyref-extractor-openapi",
+ "polyref-extractor-typescript",
  "proptest",
  "rusqlite",
  "serde",
