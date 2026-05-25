@@ -32,6 +32,7 @@ pub mod audit;
 pub mod blobstore;
 pub mod builder;
 pub mod error;
+pub mod migration_map;
 pub mod model;
 pub mod read_model;
 pub mod report_store;
@@ -47,6 +48,10 @@ pub use blobstore::{
     CacheStats, FsBlobStore,
 };
 pub use error::GraphStoreError;
+pub use migration_map::{
+    build_migration_map, CandidateProvenance, EntityRewriteCandidate, MigrationMapBuildAudit,
+    MigrationMapBuildResult, MigrationMapDiagnostic, MigrationMapDiagnosticKind, RewriteConfidence,
+};
 pub use model::{Artifact, BuildEdge, Correspondence, Entity, RepoSide};
 pub use read_model::{GraphReadModel, ObservationRecord};
 pub use report_store::{ReportStore, ReportStoreError, RunManifest, RunReportStore};
