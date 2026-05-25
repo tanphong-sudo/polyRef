@@ -12,12 +12,12 @@ use std::{collections::BTreeSet, path::Path};
 const FIXTURE_ROOT: &str = "../../fixtures/layer5/users-route-frontier";
 
 const GOLDEN_CORR_IDS: &[&str] = &[
+    "corr:event:0000000000000006",
+    "corr:generated_client:0000000000000004",
+    "corr:query_table:0000000000000005",
     "corr:route:0000000000000001",
     "corr:schema:0000000000000002",
     "corr:schema:0000000000000003",
-    "corr:generated_client:0000000000000004",
-    "corr:query_table:0000000000000005",
-    "corr:event:0000000000000006",
     "corr:workflow:0000000000000007",
 ];
 
@@ -110,6 +110,9 @@ fn fixture_ids_parse_and_rows_are_sorted() {
     assert_sorted_by(&fixture.entities, |entity| entity.entity_id.as_str());
     assert_sorted_by(&fixture.correspondences, |corr| corr.corr_id.as_str());
     assert_sorted_by(&fixture.build_edges, |edge| edge.edge_id.as_str());
+    assert_sorted_by(&fixture.migration_map_candidates, |candidate| {
+        candidate.old.as_str()
+    });
     assert_sorted_by(&fixture.observations, |obs| obs.observation_id.as_str());
 
     for artifact in &fixture.artifacts {
@@ -193,6 +196,7 @@ fn fixture_references_are_resolvable() {
         assert!(matches!(obs.kind.as_str(), "api_call" | "test_invocation"));
         assert!(obs.defined_semantics);
         assert!(!obs.support.is_empty());
+        assert_sorted_strings(&obs.support);
         for support in &obs.support {
             if support.starts_with("corr:") {
                 CorrId::parse(support).unwrap();
@@ -226,22 +230,26 @@ fn expected_frontier_is_exact_golden_set() {
         assert!(edge_ids.contains(id.as_str()));
     }
 
-    assert!(fixture
-        .correspondences
-        .iter()
-        .filter(|corr| corr.corr_id.ends_with("1001"))
-        .all(|corr| !fixture
-            .expected_frontier
-            .correspondence_ids
-            .contains(&corr.corr_id)));
-    assert!(fixture
-        .build_edges
-        .iter()
-        .filter(|edge| edge.edge_id.ends_with("1001"))
-        .all(|edge| !fixture
-            .expected_frontier
-            .build_edge_ids
-            .contains(&edge.edge_id)));
+    for corr in &fixture.correspondences {
+        let is_golden = GOLDEN_CORR_IDS.contains(&corr.corr_id.as_str());
+        assert_eq!(
+            fixture
+                .expected_frontier
+                .correspondence_ids
+                .contains(&corr.corr_id),
+            is_golden
+        );
+    }
+    for edge in &fixture.build_edges {
+        let is_golden = GOLDEN_EDGE_IDS.contains(&edge.edge_id.as_str());
+        assert_eq!(
+            fixture
+                .expected_frontier
+                .build_edge_ids
+                .contains(&edge.edge_id),
+            is_golden
+        );
+    }
 }
 
 fn load_fixture() -> Layer5Fixture {
@@ -258,6 +266,12 @@ where
 {
     for window in items.windows(2) {
         assert!(key(&window[0]) < key(&window[1]));
+    }
+}
+
+fn assert_sorted_strings(items: &[String]) {
+    for window in items.windows(2) {
+        assert!(window[0] < window[1]);
     }
 }
 

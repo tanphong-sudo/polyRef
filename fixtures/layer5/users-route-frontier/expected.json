@@ -518,12 +518,12 @@
       "edge:build_codegen:0000000000000003"
     ],
     "correspondence_ids": [
+      "corr:event:0000000000000006",
+      "corr:generated_client:0000000000000004",
+      "corr:query_table:0000000000000005",
       "corr:route:0000000000000001",
       "corr:schema:0000000000000002",
       "corr:schema:0000000000000003",
-      "corr:generated_client:0000000000000004",
-      "corr:query_table:0000000000000005",
-      "corr:event:0000000000000006",
       "corr:workflow:0000000000000007"
     ]
   },
@@ -585,12 +585,12 @@
       "kind": "api_call",
       "observation_id": "obs:api:create-user-visible",
       "support": [
+        "corr:event:0000000000000006",
+        "corr:generated_client:0000000000000004",
+        "corr:query_table:0000000000000005",
         "corr:route:0000000000000001",
         "corr:schema:0000000000000002",
         "corr:schema:0000000000000003",
-        "corr:generated_client:0000000000000004",
-        "corr:query_table:0000000000000005",
-        "corr:event:0000000000000006",
         "corr:workflow:0000000000000007",
         "edge:build_codegen:0000000000000001",
         "edge:build_codegen:0000000000000002",
@@ -603,10 +603,10 @@
       "kind": "test_invocation",
       "observation_id": "obs:test:create-user-held-out",
       "support": [
+        "corr:generated_client:0000000000000004",
         "corr:route:0000000000000001",
         "corr:schema:0000000000000002",
         "corr:schema:0000000000000003",
-        "corr:generated_client:0000000000000004",
         "edge:build_codegen:0000000000000003"
       ],
       "visibility": "held_out"
