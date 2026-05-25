@@ -1,0 +1,615 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "artifact:new:Dockerfile:222200000001",
+      "content_hash": "222200000001",
+      "kind": "dockerfile",
+      "language": "dockerfile",
+      "path": "Dockerfile",
+      "side": "new"
+    },
+    {
+      "artifact_id": "artifact:new:client/sdk.ts:222200000002",
+      "content_hash": "222200000002",
+      "kind": "generated",
+      "language": "ts",
+      "path": "client/sdk.ts",
+      "side": "new"
+    },
+    {
+      "artifact_id": "artifact:new:dist/handler.js:222200000003",
+      "content_hash": "222200000003",
+      "kind": "generated",
+      "language": "ts",
+      "path": "dist/handler.js",
+      "side": "new"
+    },
+    {
+      "artifact_id": "artifact:new:handler.py:222200000004",
+      "content_hash": "222200000004",
+      "kind": "source_file",
+      "language": "py",
+      "path": "handler.py",
+      "side": "new"
+    },
+    {
+      "artifact_id": "artifact:new:openapi.yaml:222200000005",
+      "content_hash": "222200000005",
+      "kind": "schema",
+      "language": "openapi",
+      "path": "openapi.yaml",
+      "side": "new"
+    },
+    {
+      "artifact_id": "artifact:new:service:image:222200000006",
+      "content_hash": "222200000006",
+      "kind": "generated",
+      "language": "build",
+      "path": "service:image",
+      "side": "new"
+    },
+    {
+      "artifact_id": "artifact:new:sql/users.sql:222200000007",
+      "content_hash": "222200000007",
+      "kind": "query",
+      "language": "sql",
+      "path": "sql/users.sql",
+      "side": "new"
+    },
+    {
+      "artifact_id": "artifact:new:tests/test_users.py:222200000008",
+      "content_hash": "222200000008",
+      "kind": "test",
+      "language": "py",
+      "path": "tests/test_users.py",
+      "side": "new"
+    },
+    {
+      "artifact_id": "artifact:new:workflow/deploy.yml:222200000009",
+      "content_hash": "222200000009",
+      "kind": "workflow",
+      "language": "yaml",
+      "path": "workflow/deploy.yml",
+      "side": "new"
+    },
+    {
+      "artifact_id": "artifact:old:Dockerfile:111100000001",
+      "content_hash": "111100000001",
+      "kind": "dockerfile",
+      "language": "dockerfile",
+      "path": "Dockerfile",
+      "side": "old"
+    },
+    {
+      "artifact_id": "artifact:old:client/sdk.ts:111100000002",
+      "content_hash": "111100000002",
+      "kind": "generated",
+      "language": "ts",
+      "path": "client/sdk.ts",
+      "side": "old"
+    },
+    {
+      "artifact_id": "artifact:old:dist/handler.js:111100000003",
+      "content_hash": "111100000003",
+      "kind": "generated",
+      "language": "ts",
+      "path": "dist/handler.js",
+      "side": "old"
+    },
+    {
+      "artifact_id": "artifact:old:handler.py:111100000004",
+      "content_hash": "111100000004",
+      "kind": "source_file",
+      "language": "py",
+      "path": "handler.py",
+      "side": "old"
+    },
+    {
+      "artifact_id": "artifact:old:openapi.yaml:111100000005",
+      "content_hash": "111100000005",
+      "kind": "schema",
+      "language": "openapi",
+      "path": "openapi.yaml",
+      "side": "old"
+    },
+    {
+      "artifact_id": "artifact:old:service:image:111100000006",
+      "content_hash": "111100000006",
+      "kind": "generated",
+      "language": "build",
+      "path": "service:image",
+      "side": "old"
+    },
+    {
+      "artifact_id": "artifact:old:sql/users.sql:111100000007",
+      "content_hash": "111100000007",
+      "kind": "query",
+      "language": "sql",
+      "path": "sql/users.sql",
+      "side": "old"
+    },
+    {
+      "artifact_id": "artifact:old:tests/test_users.py:111100000008",
+      "content_hash": "111100000008",
+      "kind": "test",
+      "language": "py",
+      "path": "tests/test_users.py",
+      "side": "old"
+    },
+    {
+      "artifact_id": "artifact:old:workflow/deploy.yml:111100000009",
+      "content_hash": "111100000009",
+      "kind": "workflow",
+      "language": "yaml",
+      "path": "workflow/deploy.yml",
+      "side": "old"
+    }
+  ],
+  "build_edges": [
+    {
+      "dst_artifact": "artifact:old:service:image:111100000006",
+      "edge_id": "edge:build_codegen:0000000000000001",
+      "src_artifact": "artifact:old:Dockerfile:111100000001"
+    },
+    {
+      "dst_artifact": "artifact:old:dist/handler.js:111100000003",
+      "edge_id": "edge:build_codegen:0000000000000002",
+      "src_artifact": "artifact:old:handler.py:111100000004"
+    },
+    {
+      "dst_artifact": "artifact:old:client/sdk.ts:111100000002",
+      "edge_id": "edge:build_codegen:0000000000000003",
+      "src_artifact": "artifact:old:openapi.yaml:111100000005"
+    },
+    {
+      "dst_artifact": "artifact:new:service:image:222200000006",
+      "edge_id": "edge:build_codegen:0000000000001001",
+      "src_artifact": "artifact:new:Dockerfile:222200000001"
+    },
+    {
+      "dst_artifact": "artifact:new:dist/handler.js:222200000003",
+      "edge_id": "edge:build_codegen:0000000000001002",
+      "src_artifact": "artifact:new:handler.py:222200000004"
+    },
+    {
+      "dst_artifact": "artifact:new:client/sdk.ts:222200000002",
+      "edge_id": "edge:build_codegen:0000000000001003",
+      "src_artifact": "artifact:new:openapi.yaml:222200000005"
+    }
+  ],
+  "correspondences": [
+    {
+      "corr_id": "corr:event:0000000000000006",
+      "endpoints": [
+        "old:py:event:handler.py#user.created:100000000008"
+      ],
+      "kind": "event"
+    },
+    {
+      "corr_id": "corr:event:0000000000001006",
+      "endpoints": [
+        "new:py:event:handler.py#user.created:200000000008"
+      ],
+      "kind": "event"
+    },
+    {
+      "corr_id": "corr:generated_client:0000000000000004",
+      "endpoints": [
+        "old:openapi:route:openapi.yaml#/paths/~1users/post:100000000001",
+        "old:ts:generated_client:client/sdk.ts#users_client:100000000006"
+      ],
+      "kind": "generated_client"
+    },
+    {
+      "corr_id": "corr:generated_client:0000000000001004",
+      "endpoints": [
+        "new:openapi:route:openapi.yaml#/paths/~1v2~1users/post:200000000001",
+        "new:ts:generated_client:client/sdk.ts#users_client_v2:200000000006"
+      ],
+      "kind": "generated_client"
+    },
+    {
+      "corr_id": "corr:query_table:0000000000000005",
+      "endpoints": [
+        "old:py:handler:handler.py#createUser:100000000002",
+        "old:sql:query_table:sql/users.sql#users:100000000007"
+      ],
+      "kind": "query_table"
+    },
+    {
+      "corr_id": "corr:query_table:0000000000001005",
+      "endpoints": [
+        "new:py:handler:handler.py#createUserV2:200000000002",
+        "new:sql:query_table:sql/users.sql#users:200000000007"
+      ],
+      "kind": "query_table"
+    },
+    {
+      "corr_id": "corr:route:0000000000000001",
+      "endpoints": [
+        "old:openapi:route:openapi.yaml#/paths/~1users/post:100000000001",
+        "old:py:handler:handler.py#createUser:100000000002",
+        "old:ts:generated_client:client/sdk.ts#users_client:100000000006",
+        "old:py:test:tests/test_users.py#test_create_user:100000000011"
+      ],
+      "kind": "route"
+    },
+    {
+      "corr_id": "corr:route:0000000000001001",
+      "endpoints": [
+        "new:openapi:route:openapi.yaml#/paths/~1v2~1users/post:200000000001",
+        "new:py:handler:handler.py#createUserV2:200000000002",
+        "new:ts:generated_client:client/sdk.ts#users_client_v2:200000000006",
+        "new:py:test:tests/test_users.py#test_create_user_v2:200000000011"
+      ],
+      "kind": "route"
+    },
+    {
+      "corr_id": "corr:schema:0000000000000002",
+      "endpoints": [
+        "old:openapi:schema:openapi.yaml#/components/schemas/UserCreateV1:100000000003",
+        "old:jsonschema:validator:handler.py#validate_user_create_v1:100000000009"
+      ],
+      "kind": "schema"
+    },
+    {
+      "corr_id": "corr:schema:0000000000000003",
+      "endpoints": [
+        "old:openapi:schema:openapi.yaml#/components/schemas/UserV1:100000000004",
+        "old:jsonschema:validator:handler.py#validate_user_v1:100000000010"
+      ],
+      "kind": "schema"
+    },
+    {
+      "corr_id": "corr:schema:0000000000001002",
+      "endpoints": [
+        "new:openapi:schema:openapi.yaml#/components/schemas/UserCreateV2:200000000003",
+        "new:jsonschema:validator:handler.py#validate_user_create_v2:200000000009"
+      ],
+      "kind": "schema"
+    },
+    {
+      "corr_id": "corr:schema:0000000000001003",
+      "endpoints": [
+        "new:openapi:schema:openapi.yaml#/components/schemas/UserV2:200000000004",
+        "new:jsonschema:validator:handler.py#validate_user_v2:200000000010"
+      ],
+      "kind": "schema"
+    },
+    {
+      "corr_id": "corr:workflow:0000000000000007",
+      "endpoints": [
+        "old:yaml:workflow:workflow/deploy.yml#packagedTarget:100000000012",
+        "old:build:build_target:service:image:100000000005"
+      ],
+      "kind": "workflow"
+    },
+    {
+      "corr_id": "corr:workflow:0000000000001007",
+      "endpoints": [
+        "new:yaml:workflow:workflow/deploy.yml#packagedTarget:200000000012",
+        "new:build:build_target:service:image:200000000005"
+      ],
+      "kind": "workflow"
+    }
+  ],
+  "entities": [
+    {
+      "artifact_id": "artifact:new:service:image:222200000006",
+      "entity_id": "new:build:build_target:service:image:200000000005",
+      "kind": "build_target",
+      "language": "build",
+      "local_path": "service:image",
+      "side": "new",
+      "stable_hash": "200000000005"
+    },
+    {
+      "artifact_id": "artifact:new:handler.py:222200000004",
+      "entity_id": "new:jsonschema:validator:handler.py#validate_user_create_v2:200000000009",
+      "kind": "validator",
+      "language": "jsonschema",
+      "local_path": "handler.py#validate_user_create_v2",
+      "side": "new",
+      "stable_hash": "200000000009"
+    },
+    {
+      "artifact_id": "artifact:new:handler.py:222200000004",
+      "entity_id": "new:jsonschema:validator:handler.py#validate_user_v2:200000000010",
+      "kind": "validator",
+      "language": "jsonschema",
+      "local_path": "handler.py#validate_user_v2",
+      "side": "new",
+      "stable_hash": "200000000010"
+    },
+    {
+      "artifact_id": "artifact:new:openapi.yaml:222200000005",
+      "entity_id": "new:openapi:route:openapi.yaml#/paths/~1v2~1users/post:200000000001",
+      "kind": "route",
+      "language": "openapi",
+      "local_path": "openapi.yaml#/paths/~1v2~1users/post",
+      "side": "new",
+      "stable_hash": "200000000001"
+    },
+    {
+      "artifact_id": "artifact:new:openapi.yaml:222200000005",
+      "entity_id": "new:openapi:schema:openapi.yaml#/components/schemas/UserCreateV2:200000000003",
+      "kind": "schema",
+      "language": "openapi",
+      "local_path": "openapi.yaml#/components/schemas/UserCreateV2",
+      "side": "new",
+      "stable_hash": "200000000003"
+    },
+    {
+      "artifact_id": "artifact:new:openapi.yaml:222200000005",
+      "entity_id": "new:openapi:schema:openapi.yaml#/components/schemas/UserV2:200000000004",
+      "kind": "schema",
+      "language": "openapi",
+      "local_path": "openapi.yaml#/components/schemas/UserV2",
+      "side": "new",
+      "stable_hash": "200000000004"
+    },
+    {
+      "artifact_id": "artifact:new:handler.py:222200000004",
+      "entity_id": "new:py:event:handler.py#user.created:200000000008",
+      "kind": "event",
+      "language": "py",
+      "local_path": "handler.py#user.created",
+      "side": "new",
+      "stable_hash": "200000000008"
+    },
+    {
+      "artifact_id": "artifact:new:handler.py:222200000004",
+      "entity_id": "new:py:handler:handler.py#createUserV2:200000000002",
+      "kind": "handler",
+      "language": "py",
+      "local_path": "handler.py#createUserV2",
+      "side": "new",
+      "stable_hash": "200000000002"
+    },
+    {
+      "artifact_id": "artifact:new:tests/test_users.py:222200000008",
+      "entity_id": "new:py:test:tests/test_users.py#test_create_user_v2:200000000011",
+      "kind": "test",
+      "language": "py",
+      "local_path": "tests/test_users.py#test_create_user_v2",
+      "side": "new",
+      "stable_hash": "200000000011"
+    },
+    {
+      "artifact_id": "artifact:new:sql/users.sql:222200000007",
+      "entity_id": "new:sql:query_table:sql/users.sql#users:200000000007",
+      "kind": "query_table",
+      "language": "sql",
+      "local_path": "sql/users.sql#users",
+      "side": "new",
+      "stable_hash": "200000000007"
+    },
+    {
+      "artifact_id": "artifact:new:client/sdk.ts:222200000002",
+      "entity_id": "new:ts:generated_client:client/sdk.ts#users_client_v2:200000000006",
+      "kind": "generated_client",
+      "language": "ts",
+      "local_path": "client/sdk.ts#users_client_v2",
+      "side": "new",
+      "stable_hash": "200000000006"
+    },
+    {
+      "artifact_id": "artifact:new:workflow/deploy.yml:222200000009",
+      "entity_id": "new:yaml:workflow:workflow/deploy.yml#packagedTarget:200000000012",
+      "kind": "workflow",
+      "language": "yaml",
+      "local_path": "workflow/deploy.yml#packagedTarget",
+      "side": "new",
+      "stable_hash": "200000000012"
+    },
+    {
+      "artifact_id": "artifact:old:service:image:111100000006",
+      "entity_id": "old:build:build_target:service:image:100000000005",
+      "kind": "build_target",
+      "language": "build",
+      "local_path": "service:image",
+      "side": "old",
+      "stable_hash": "100000000005"
+    },
+    {
+      "artifact_id": "artifact:old:handler.py:111100000004",
+      "entity_id": "old:jsonschema:validator:handler.py#validate_user_create_v1:100000000009",
+      "kind": "validator",
+      "language": "jsonschema",
+      "local_path": "handler.py#validate_user_create_v1",
+      "side": "old",
+      "stable_hash": "100000000009"
+    },
+    {
+      "artifact_id": "artifact:old:handler.py:111100000004",
+      "entity_id": "old:jsonschema:validator:handler.py#validate_user_v1:100000000010",
+      "kind": "validator",
+      "language": "jsonschema",
+      "local_path": "handler.py#validate_user_v1",
+      "side": "old",
+      "stable_hash": "100000000010"
+    },
+    {
+      "artifact_id": "artifact:old:openapi.yaml:111100000005",
+      "entity_id": "old:openapi:route:openapi.yaml#/paths/~1users/post:100000000001",
+      "kind": "route",
+      "language": "openapi",
+      "local_path": "openapi.yaml#/paths/~1users/post",
+      "side": "old",
+      "stable_hash": "100000000001"
+    },
+    {
+      "artifact_id": "artifact:old:openapi.yaml:111100000005",
+      "entity_id": "old:openapi:schema:openapi.yaml#/components/schemas/UserCreateV1:100000000003",
+      "kind": "schema",
+      "language": "openapi",
+      "local_path": "openapi.yaml#/components/schemas/UserCreateV1",
+      "side": "old",
+      "stable_hash": "100000000003"
+    },
+    {
+      "artifact_id": "artifact:old:openapi.yaml:111100000005",
+      "entity_id": "old:openapi:schema:openapi.yaml#/components/schemas/UserV1:100000000004",
+      "kind": "schema",
+      "language": "openapi",
+      "local_path": "openapi.yaml#/components/schemas/UserV1",
+      "side": "old",
+      "stable_hash": "100000000004"
+    },
+    {
+      "artifact_id": "artifact:old:handler.py:111100000004",
+      "entity_id": "old:py:event:handler.py#user.created:100000000008",
+      "kind": "event",
+      "language": "py",
+      "local_path": "handler.py#user.created",
+      "side": "old",
+      "stable_hash": "100000000008"
+    },
+    {
+      "artifact_id": "artifact:old:handler.py:111100000004",
+      "entity_id": "old:py:handler:handler.py#createUser:100000000002",
+      "kind": "handler",
+      "language": "py",
+      "local_path": "handler.py#createUser",
+      "side": "old",
+      "stable_hash": "100000000002"
+    },
+    {
+      "artifact_id": "artifact:old:tests/test_users.py:111100000008",
+      "entity_id": "old:py:test:tests/test_users.py#test_create_user:100000000011",
+      "kind": "test",
+      "language": "py",
+      "local_path": "tests/test_users.py#test_create_user",
+      "side": "old",
+      "stable_hash": "100000000011"
+    },
+    {
+      "artifact_id": "artifact:old:sql/users.sql:111100000007",
+      "entity_id": "old:sql:query_table:sql/users.sql#users:100000000007",
+      "kind": "query_table",
+      "language": "sql",
+      "local_path": "sql/users.sql#users",
+      "side": "old",
+      "stable_hash": "100000000007"
+    },
+    {
+      "artifact_id": "artifact:old:client/sdk.ts:111100000002",
+      "entity_id": "old:ts:generated_client:client/sdk.ts#users_client:100000000006",
+      "kind": "generated_client",
+      "language": "ts",
+      "local_path": "client/sdk.ts#users_client",
+      "side": "old",
+      "stable_hash": "100000000006"
+    },
+    {
+      "artifact_id": "artifact:old:workflow/deploy.yml:111100000009",
+      "entity_id": "old:yaml:workflow:workflow/deploy.yml#packagedTarget:100000000012",
+      "kind": "workflow",
+      "language": "yaml",
+      "local_path": "workflow/deploy.yml#packagedTarget",
+      "side": "old",
+      "stable_hash": "100000000012"
+    }
+  ],
+  "expected_frontier": {
+    "build_edge_ids": [
+      "edge:build_codegen:0000000000000001",
+      "edge:build_codegen:0000000000000002",
+      "edge:build_codegen:0000000000000003"
+    ],
+    "correspondence_ids": [
+      "corr:route:0000000000000001",
+      "corr:schema:0000000000000002",
+      "corr:schema:0000000000000003",
+      "corr:generated_client:0000000000000004",
+      "corr:query_table:0000000000000005",
+      "corr:event:0000000000000006",
+      "corr:workflow:0000000000000007"
+    ]
+  },
+  "migration_map_candidates": [
+    {
+      "evidence": "concrete",
+      "new": "new:build:build_target:service:image:200000000005",
+      "old": "old:build:build_target:service:image:100000000005"
+    },
+    {
+      "evidence": "concrete",
+      "new": "new:openapi:route:openapi.yaml#/paths/~1v2~1users/post:200000000001",
+      "old": "old:openapi:route:openapi.yaml#/paths/~1users/post:100000000001"
+    },
+    {
+      "evidence": "concrete",
+      "new": "new:openapi:schema:openapi.yaml#/components/schemas/UserCreateV2:200000000003",
+      "old": "old:openapi:schema:openapi.yaml#/components/schemas/UserCreateV1:100000000003"
+    },
+    {
+      "evidence": "concrete",
+      "new": "new:openapi:schema:openapi.yaml#/components/schemas/UserV2:200000000004",
+      "old": "old:openapi:schema:openapi.yaml#/components/schemas/UserV1:100000000004"
+    },
+    {
+      "evidence": "concrete",
+      "new": "new:py:event:handler.py#user.created:200000000008",
+      "old": "old:py:event:handler.py#user.created:100000000008"
+    },
+    {
+      "evidence": "concrete",
+      "new": "new:py:handler:handler.py#createUserV2:200000000002",
+      "old": "old:py:handler:handler.py#createUser:100000000002"
+    },
+    {
+      "evidence": "concrete",
+      "new": "new:py:test:tests/test_users.py#test_create_user_v2:200000000011",
+      "old": "old:py:test:tests/test_users.py#test_create_user:100000000011"
+    },
+    {
+      "evidence": "concrete",
+      "new": "new:sql:query_table:sql/users.sql#users:200000000007",
+      "old": "old:sql:query_table:sql/users.sql#users:100000000007"
+    },
+    {
+      "evidence": "concrete",
+      "new": "new:ts:generated_client:client/sdk.ts#users_client_v2:200000000006",
+      "old": "old:ts:generated_client:client/sdk.ts#users_client:100000000006"
+    },
+    {
+      "evidence": "concrete",
+      "new": "new:yaml:workflow:workflow/deploy.yml#packagedTarget:200000000012",
+      "old": "old:yaml:workflow:workflow/deploy.yml#packagedTarget:100000000012"
+    }
+  ],
+  "observations": [
+    {
+      "defined_semantics": true,
+      "kind": "api_call",
+      "observation_id": "obs:api:create-user-visible",
+      "support": [
+        "corr:route:0000000000000001",
+        "corr:schema:0000000000000002",
+        "corr:schema:0000000000000003",
+        "corr:generated_client:0000000000000004",
+        "corr:query_table:0000000000000005",
+        "corr:event:0000000000000006",
+        "corr:workflow:0000000000000007",
+        "edge:build_codegen:0000000000000001",
+        "edge:build_codegen:0000000000000002",
+        "edge:build_codegen:0000000000000003"
+      ],
+      "visibility": "visible"
+    },
+    {
+      "defined_semantics": true,
+      "kind": "test_invocation",
+      "observation_id": "obs:test:create-user-held-out",
+      "support": [
+        "corr:route:0000000000000001",
+        "corr:schema:0000000000000002",
+        "corr:schema:0000000000000003",
+        "corr:generated_client:0000000000000004",
+        "edge:build_codegen:0000000000000003"
+      ],
+      "visibility": "held_out"
+    }
+  ]
+}

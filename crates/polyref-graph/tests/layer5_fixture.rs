@@ -119,7 +119,10 @@ fn fixture_ids_parse_and_rows_are_sorted() {
         Language::parse(&artifact.language).unwrap();
         assert!(matches!(artifact.side.as_str(), "old" | "new"));
         assert_eq!(artifact.content_hash.len(), 12);
-        assert_eq!(artifact.content_hash, parsed.as_str().rsplit(':').next().unwrap());
+        assert_eq!(
+            artifact.content_hash,
+            parsed.as_str().rsplit(':').next().unwrap()
+        );
         assert!(!artifact.path.starts_with('/'));
         assert!(!artifact.path.split('/').any(|segment| segment == ".."));
     }
@@ -162,7 +165,10 @@ fn fixture_references_are_resolvable() {
 
     for corr in &fixture.correspondences {
         for endpoint in &corr.endpoints {
-            assert!(entity_ids.contains(endpoint.as_str()), "missing endpoint {endpoint}");
+            assert!(
+                entity_ids.contains(endpoint.as_str()),
+                "missing endpoint {endpoint}"
+            );
         }
     }
 
@@ -207,7 +213,10 @@ fn expected_frontier_is_exact_golden_set() {
     let corr_ids = corr_ids(&fixture);
     let edge_ids = edge_ids(&fixture);
 
-    assert_eq!(fixture.expected_frontier.correspondence_ids, GOLDEN_CORR_IDS);
+    assert_eq!(
+        fixture.expected_frontier.correspondence_ids,
+        GOLDEN_CORR_IDS
+    );
     assert_eq!(fixture.expected_frontier.build_edge_ids, GOLDEN_EDGE_IDS);
 
     for id in &fixture.expected_frontier.correspondence_ids {
@@ -221,12 +230,18 @@ fn expected_frontier_is_exact_golden_set() {
         .correspondences
         .iter()
         .filter(|corr| corr.corr_id.ends_with("1001"))
-        .all(|corr| !fixture.expected_frontier.correspondence_ids.contains(&corr.corr_id)));
+        .all(|corr| !fixture
+            .expected_frontier
+            .correspondence_ids
+            .contains(&corr.corr_id)));
     assert!(fixture
         .build_edges
         .iter()
         .filter(|edge| edge.edge_id.ends_with("1001"))
-        .all(|edge| !fixture.expected_frontier.build_edge_ids.contains(&edge.edge_id)));
+        .all(|edge| !fixture
+            .expected_frontier
+            .build_edge_ids
+            .contains(&edge.edge_id)));
 }
 
 fn load_fixture() -> Layer5Fixture {
