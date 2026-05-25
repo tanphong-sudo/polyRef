@@ -169,6 +169,7 @@ fn read_model_loads_observation_support_refs() {
     let store = seeded_store();
     let support = store
         .observation_support("obs:api:create-user-visible")
+        .unwrap()
         .unwrap();
 
     assert_eq!(support.len(), 10);
@@ -186,6 +187,7 @@ fn read_model_loads_observation_support_refs() {
         "obs:api:create-user-visible"
     );
     assert_eq!(observations[0].observation.header().support, support);
+    assert_eq!(store.observation_support("obs:missing").unwrap(), None);
 }
 
 fn seeded_store() -> SqliteGraphStore {

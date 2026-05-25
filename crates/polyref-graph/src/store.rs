@@ -31,6 +31,7 @@ use polyref_core::{
     Observation,
 };
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use std::sync::Mutex;
 
@@ -521,15 +522,7 @@ impl GraphReadModel for SqliteGraphStore {
     }
 
     fn list_correspondences(&self) -> Result<Vec<Correspondence>> {
-        self.with_conn(|conn| {
-            let ids = ordered_strings(
-                conn,
-                "SELECT corr_id FROM correspondence ORDER BY corr_id ASC",
-            )?;
-            ids.into_iter()
-                .map(|id| load_correspondence(conn, &id))
-                .collect()
-        })
+        self.with_conn(|conn| load_correspondences(conn))
     }
 
     fn list_build_edges(&self) -> Result<Vec<BuildEdge>> {
@@ -573,11 +566,15 @@ impl GraphReadModel for SqliteGraphStore {
                  WHERE entity_id = ?1 ORDER BY corr_id ASC",
             )?;
             let ids = stmt.query_map(params![entity_id.as_str()], |row| row.get::<_, String>(0))?;
-            ids.map(|id| {
-                id.map_err(GraphStoreError::from)
-                    .and_then(|id| load_correspondence(conn, &id))
+            let wanted = ids
+                .map(|id| id.map_err(GraphStoreError::from))
+                .collect::<Result<BTreeSet<_>>>()?;
+            load_correspondences(conn).map(|correspondences| {
+                correspondences
+                    .into_iter()
+                    .filter(|corr| wanted.contains(corr.corr_id.as_str()))
+                    .collect()
             })
-            .collect()
         })
     }
 
@@ -611,7 +608,7 @@ impl GraphReadModel for SqliteGraphStore {
         })
     }
 
-    fn observation_support(&self, observation_id: &str) -> Result<Vec<SupportRef>> {
+    fn observation_support(&self, observation_id: &str) -> Result<Option<Vec<SupportRef>>> {
         self.with_conn(|conn| {
             let payload = conn
                 .query_row(
@@ -621,10 +618,10 @@ impl GraphReadModel for SqliteGraphStore {
                 )
                 .optional()?;
             match payload {
-                None => Ok(Vec::new()),
+                None => Ok(None),
                 Some(payload) => {
                     let observation: Observation = serde_json::from_str(&payload)?;
-                    Ok(observation.header().support.clone())
+                    Ok(Some(observation.header().support.clone()))
                 }
             }
         })
@@ -637,51 +634,46 @@ impl GraphReadModel for SqliteGraphStore {
 // `polyref-core`. Decoders live in the `tags` module so consumer code
 // keeps its tag-string knowledge in exactly one place per enum.
 
-fn ordered_strings(conn: &Connection, sql: &str) -> Result<Vec<String>> {
-    let mut stmt = conn.prepare(sql)?;
-    let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
-    rows.map(|row| row.map_err(GraphStoreError::from)).collect()
-}
-
-fn load_correspondence(conn: &Connection, id: &str) -> Result<Correspondence> {
-    let header = conn
-        .query_row(
-            "SELECT corr_id, kind, rule_version FROM correspondence WHERE corr_id = ?1",
-            params![id],
-            |row| {
-                Ok(RawCorrHeader {
-                    id: row.get(0)?,
-                    kind: row.get(1)?,
-                    rule_version: row.get(2)?,
-                })
-            },
-        )
-        .optional()?;
-    let Some(header) = header else {
-        return Err(GraphStoreError::UnsupportedEnum {
-            enum_name: "CorrId",
-            value: format!("missing correspondence row for {id}"),
-        });
-    };
-
-    let mut endpoint_stmt = conn.prepare(
-        "SELECT entity_id FROM correspondence_endpoint WHERE corr_id = ?1 ORDER BY position ASC",
-    )?;
-    let endpoints = endpoint_stmt.query_map(params![id], |row| row.get::<_, String>(0))?;
-    let parsed_endpoints = endpoints
-        .map(|endpoint| {
-            endpoint
-                .map_err(GraphStoreError::from)
-                .and_then(|endpoint| parse_entity_id(&endpoint))
+fn load_correspondences(conn: &Connection) -> Result<Vec<Correspondence>> {
+    let mut header_stmt = conn
+        .prepare("SELECT corr_id, kind, rule_version FROM correspondence ORDER BY corr_id ASC")?;
+    let headers = header_stmt.query_map([], |row| {
+        Ok(RawCorrHeader {
+            id: row.get(0)?,
+            kind: row.get(1)?,
+            rule_version: row.get(2)?,
         })
+    })?;
+    let headers = headers
+        .map(|header| header.map_err(GraphStoreError::from))
         .collect::<Result<Vec<_>>>()?;
 
-    Ok(Correspondence {
-        corr_id: parse_corr_id(&header.id)?,
-        kind: tags::parse_correspondence_kind(&header.kind)?,
-        rule_version: header.rule_version,
-        endpoints: parsed_endpoints,
-    })
+    let mut endpoints_by_corr = BTreeMap::<String, Vec<EntityId>>::new();
+    let mut endpoint_stmt = conn.prepare(
+        "SELECT corr_id, entity_id FROM correspondence_endpoint ORDER BY corr_id ASC, position ASC",
+    )?;
+    let endpoints = endpoint_stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })?;
+    for endpoint in endpoints {
+        let (corr_id, entity_id) = endpoint?;
+        endpoints_by_corr
+            .entry(corr_id)
+            .or_default()
+            .push(parse_entity_id(&entity_id)?);
+    }
+
+    headers
+        .into_iter()
+        .map(|header| {
+            Ok(Correspondence {
+                corr_id: parse_corr_id(&header.id)?,
+                kind: tags::parse_correspondence_kind(&header.kind)?,
+                rule_version: header.rule_version,
+                endpoints: endpoints_by_corr.remove(&header.id).unwrap_or_default(),
+            })
+        })
+        .collect()
 }
 
 fn raw_edge_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<RawEdgeRow> {

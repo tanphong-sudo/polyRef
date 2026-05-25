@@ -46,5 +46,9 @@ pub trait GraphReadModel {
     fn build_edges_to(&self, artifact_id: &ArtifactId) -> Result<Vec<BuildEdge>>;
 
     /// Load an observation support set by id.
-    fn observation_support(&self, observation_id: &str) -> Result<Vec<SupportRef>>;
+    ///
+    /// Returns `Ok(None)` when the observation id is absent, and `Ok(Some(_))`
+    /// when the row exists. Existing observations may legitimately have empty
+    /// support sets, so absence is not collapsed into an empty list.
+    fn observation_support(&self, observation_id: &str) -> Result<Option<Vec<SupportRef>>>;
 }
