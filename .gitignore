@@ -13,12 +13,19 @@ Thumbs.db
 target/
 
 # Working notes (not shipped)
+AGENTS.md
+CLAUDE.md
+ECC.md
+RTK.md
 claude/
 gpt/
 gpt-review.md
 temp/
+git-workflow.md
 implementation-notes.md
+plans.md
 quality-gate.sh
+deep-research-report*.md
 
 # Paper source (not shipped)
 *.pdf
