@@ -33,6 +33,7 @@ pub mod blobstore;
 pub mod builder;
 pub mod error;
 pub mod model;
+pub mod read_model;
 pub mod report_store;
 pub mod store;
 mod tags;
@@ -46,6 +47,7 @@ pub use blobstore::{
     CacheStats, FsBlobStore,
 };
 pub use error::GraphStoreError;
-pub use model::{Artifact, BuildEdge, Correspondence, Entity};
+pub use model::{Artifact, BuildEdge, Correspondence, Entity, RepoSide};
+pub use read_model::{GraphReadModel, ObservationRecord};
 pub use report_store::{ReportStore, ReportStoreError, RunManifest, RunReportStore};
 pub use store::{GraphStore, SqliteGraphStore};

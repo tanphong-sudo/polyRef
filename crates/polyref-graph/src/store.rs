@@ -23,9 +23,11 @@
 
 use crate::error::{GraphStoreError, Result};
 use crate::model::{Artifact, BuildEdge, Correspondence, Entity, RepoSide};
+use crate::read_model::{GraphReadModel, ObservationRecord};
 use crate::tags;
 use polyref_core::{
     ids::{ArtifactId, CorrId, EdgeId, EntityId},
+    observation::SupportRef,
     Observation,
 };
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
@@ -474,11 +476,221 @@ impl GraphStore for SqliteGraphStore {
     }
 }
 
+impl GraphReadModel for SqliteGraphStore {
+    fn list_artifacts(&self) -> Result<Vec<Artifact>> {
+        self.with_conn(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT artifact_id, repo_side, kind, language, local_path, content_hash \
+                 FROM artifact ORDER BY artifact_id ASC",
+            )?;
+            let rows = stmt.query_map([], |row| {
+                Ok(RawArtifactRow {
+                    id: row.get(0)?,
+                    repo_side: row.get(1)?,
+                    kind: row.get(2)?,
+                    language: row.get(3)?,
+                    local_path: row.get(4)?,
+                    content_hash: row.get(5)?,
+                })
+            })?;
+            rows.map(|row| row.map_err(GraphStoreError::from).and_then(decode_artifact))
+                .collect()
+        })
+    }
+
+    fn list_entities(&self) -> Result<Vec<Entity>> {
+        self.with_conn(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT entity_id, artifact_id, repo_side, language, kind, local_path, stable_hash \
+                 FROM entity ORDER BY entity_id ASC",
+            )?;
+            let rows = stmt.query_map([], |row| {
+                Ok(RawEntityRow {
+                    id: row.get(0)?,
+                    artifact_id: row.get(1)?,
+                    repo_side: row.get(2)?,
+                    language: row.get(3)?,
+                    kind: row.get(4)?,
+                    local_path: row.get(5)?,
+                    stable_hash: row.get(6)?,
+                })
+            })?;
+            rows.map(|row| row.map_err(GraphStoreError::from).and_then(decode_entity))
+                .collect()
+        })
+    }
+
+    fn list_correspondences(&self) -> Result<Vec<Correspondence>> {
+        self.with_conn(|conn| {
+            let ids = ordered_strings(
+                conn,
+                "SELECT corr_id FROM correspondence ORDER BY corr_id ASC",
+            )?;
+            ids.into_iter()
+                .map(|id| load_correspondence(conn, &id))
+                .collect()
+        })
+    }
+
+    fn list_build_edges(&self) -> Result<Vec<BuildEdge>> {
+        self.with_conn(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT edge_id, src_artifact, dst_artifact FROM build_edge ORDER BY edge_id ASC",
+            )?;
+            let rows = stmt.query_map([], raw_edge_from_row)?;
+            rows.map(|row| {
+                row.map_err(GraphStoreError::from)
+                    .and_then(decode_build_edge)
+            })
+            .collect()
+        })
+    }
+
+    fn list_observations(&self) -> Result<Vec<ObservationRecord>> {
+        self.with_conn(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT observation_id, payload FROM observation ORDER BY observation_id ASC",
+            )?;
+            let rows = stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?;
+            rows.map(|row| {
+                let (observation_id, payload) = row?;
+                let observation = serde_json::from_str(&payload)?;
+                Ok(ObservationRecord {
+                    observation_id,
+                    observation,
+                })
+            })
+            .collect()
+        })
+    }
+
+    fn correspondences_for_entity(&self, entity_id: &EntityId) -> Result<Vec<Correspondence>> {
+        self.with_conn(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT DISTINCT corr_id FROM correspondence_endpoint \
+                 WHERE entity_id = ?1 ORDER BY corr_id ASC",
+            )?;
+            let ids = stmt.query_map(params![entity_id.as_str()], |row| row.get::<_, String>(0))?;
+            ids.map(|id| {
+                id.map_err(GraphStoreError::from)
+                    .and_then(|id| load_correspondence(conn, &id))
+            })
+            .collect()
+        })
+    }
+
+    fn build_edges_from(&self, artifact_id: &ArtifactId) -> Result<Vec<BuildEdge>> {
+        self.with_conn(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT edge_id, src_artifact, dst_artifact FROM build_edge \
+                 WHERE src_artifact = ?1 ORDER BY edge_id ASC",
+            )?;
+            let rows = stmt.query_map(params![artifact_id.as_str()], raw_edge_from_row)?;
+            rows.map(|row| {
+                row.map_err(GraphStoreError::from)
+                    .and_then(decode_build_edge)
+            })
+            .collect()
+        })
+    }
+
+    fn build_edges_to(&self, artifact_id: &ArtifactId) -> Result<Vec<BuildEdge>> {
+        self.with_conn(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT edge_id, src_artifact, dst_artifact FROM build_edge \
+                 WHERE dst_artifact = ?1 ORDER BY edge_id ASC",
+            )?;
+            let rows = stmt.query_map(params![artifact_id.as_str()], raw_edge_from_row)?;
+            rows.map(|row| {
+                row.map_err(GraphStoreError::from)
+                    .and_then(decode_build_edge)
+            })
+            .collect()
+        })
+    }
+
+    fn observation_support(&self, observation_id: &str) -> Result<Vec<SupportRef>> {
+        self.with_conn(|conn| {
+            let payload = conn
+                .query_row(
+                    "SELECT payload FROM observation WHERE observation_id = ?1",
+                    params![observation_id],
+                    |row| row.get::<_, String>(0),
+                )
+                .optional()?;
+            match payload {
+                None => Ok(Vec::new()),
+                Some(payload) => {
+                    let observation: Observation = serde_json::from_str(&payload)?;
+                    Ok(observation.header().support.clone())
+                }
+            }
+        })
+    }
+}
+
 // ─── Tag bridge ────────────────────────────────────────────────────────
 //
 // Encoders are one-liners: every business enum exposes `as_tag()` in
 // `polyref-core`. Decoders live in the `tags` module so consumer code
 // keeps its tag-string knowledge in exactly one place per enum.
+
+fn ordered_strings(conn: &Connection, sql: &str) -> Result<Vec<String>> {
+    let mut stmt = conn.prepare(sql)?;
+    let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+    rows.map(|row| row.map_err(GraphStoreError::from)).collect()
+}
+
+fn load_correspondence(conn: &Connection, id: &str) -> Result<Correspondence> {
+    let header = conn
+        .query_row(
+            "SELECT corr_id, kind, rule_version FROM correspondence WHERE corr_id = ?1",
+            params![id],
+            |row| {
+                Ok(RawCorrHeader {
+                    id: row.get(0)?,
+                    kind: row.get(1)?,
+                    rule_version: row.get(2)?,
+                })
+            },
+        )
+        .optional()?;
+    let Some(header) = header else {
+        return Err(GraphStoreError::UnsupportedEnum {
+            enum_name: "CorrId",
+            value: format!("missing correspondence row for {id}"),
+        });
+    };
+
+    let mut endpoint_stmt = conn.prepare(
+        "SELECT entity_id FROM correspondence_endpoint WHERE corr_id = ?1 ORDER BY position ASC",
+    )?;
+    let endpoints = endpoint_stmt.query_map(params![id], |row| row.get::<_, String>(0))?;
+    let parsed_endpoints = endpoints
+        .map(|endpoint| {
+            endpoint
+                .map_err(GraphStoreError::from)
+                .and_then(|endpoint| parse_entity_id(&endpoint))
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(Correspondence {
+        corr_id: parse_corr_id(&header.id)?,
+        kind: tags::parse_correspondence_kind(&header.kind)?,
+        rule_version: header.rule_version,
+        endpoints: parsed_endpoints,
+    })
+}
+
+fn raw_edge_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<RawEdgeRow> {
+    Ok(RawEdgeRow {
+        id: row.get(0)?,
+        src: row.get(1)?,
+        dst: row.get(2)?,
+    })
+}
 
 fn parse_entity_id(s: &str) -> Result<EntityId> {
     EntityId::parse(s).map_err(|e| GraphStoreError::UnsupportedEnum {

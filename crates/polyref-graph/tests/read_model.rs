@@ -111,8 +111,14 @@ fn read_model_lists_rows_in_deterministic_order() {
             .map(|record| record.observation_id.as_str()),
     );
 
-    assert_eq!(store.list_artifacts().unwrap(), store.list_artifacts().unwrap());
-    assert_eq!(store.list_entities().unwrap(), store.list_entities().unwrap());
+    assert_eq!(
+        store.list_artifacts().unwrap(),
+        store.list_artifacts().unwrap()
+    );
+    assert_eq!(
+        store.list_entities().unwrap(),
+        store.list_entities().unwrap()
+    );
     assert_eq!(
         store.list_correspondences().unwrap(),
         store.list_correspondences().unwrap()
@@ -126,10 +132,8 @@ fn read_model_lists_rows_in_deterministic_order() {
 #[test]
 fn read_model_resolves_endpoint_and_build_edge_indexes() {
     let store = seeded_store();
-    let old_route = EntityId::parse(
-        "old:openapi:route:openapi.yaml#/paths/~1users/post:100000000001",
-    )
-    .unwrap();
+    let old_route =
+        EntityId::parse("old:openapi:route:openapi.yaml#/paths/~1users/post:100000000001").unwrap();
     let openapi_artifact = ArtifactId::parse("artifact:old:openapi.yaml:111100000005").unwrap();
     let generated_client = ArtifactId::parse("artifact:old:client/sdk.ts:111100000002").unwrap();
 
@@ -150,7 +154,10 @@ fn read_model_resolves_endpoint_and_build_edge_indexes() {
 
     let outgoing = store.build_edges_from(&openapi_artifact).unwrap();
     assert_eq!(outgoing.len(), 1);
-    assert_eq!(outgoing[0].edge_id.as_str(), "edge:build_codegen:0000000000000003");
+    assert_eq!(
+        outgoing[0].edge_id.as_str(),
+        "edge:build_codegen:0000000000000003"
+    );
 
     let incoming = store.build_edges_to(&generated_client).unwrap();
     assert_eq!(incoming.len(), 1);
@@ -174,7 +181,10 @@ fn read_model_loads_observation_support_refs() {
 
     let observations = store.list_observations().unwrap();
     assert_eq!(observations.len(), 2);
-    assert_eq!(observations[0].observation_id, "obs:api:create-user-visible");
+    assert_eq!(
+        observations[0].observation_id,
+        "obs:api:create-user-visible"
+    );
     assert_eq!(observations[0].observation.header().support, support);
 }
 
@@ -274,14 +284,29 @@ fn observation_row(observation: &FixtureObservation, fixture: &Layer5Fixture) ->
         "api_call" => Observation::ApiCall(ApiCallObs {
             method: HttpMethod::Post,
             path: "/users".to_owned(),
-            request_schema_id: Some(entity_id(fixture, "old:openapi:schema:openapi.yaml#/components/schemas/UserCreateV1:100000000003")),
-            response_schema_id: Some(entity_id(fixture, "old:openapi:schema:openapi.yaml#/components/schemas/UserV1:100000000004")),
-            client_id: Some(entity_id(fixture, "old:ts:generated_client:client/sdk.ts#users_client:100000000006")),
+            request_schema_id: Some(entity_id(
+                fixture,
+                "old:openapi:schema:openapi.yaml#/components/schemas/UserCreateV1:100000000003",
+            )),
+            response_schema_id: Some(entity_id(
+                fixture,
+                "old:openapi:schema:openapi.yaml#/components/schemas/UserV1:100000000004",
+            )),
+            client_id: Some(entity_id(
+                fixture,
+                "old:ts:generated_client:client/sdk.ts#users_client:100000000006",
+            )),
             header,
         }),
         "test_invocation" => Observation::TestInvocation(TestObs {
-            test_id: entity_id(fixture, "old:py:test:tests/test_users.py#test_create_user:100000000011"),
-            public_entrypoint: Some(entity_id(fixture, "old:openapi:route:openapi.yaml#/paths/~1users/post:100000000001")),
+            test_id: entity_id(
+                fixture,
+                "old:py:test:tests/test_users.py#test_create_user:100000000011",
+            ),
+            public_entrypoint: Some(entity_id(
+                fixture,
+                "old:openapi:route:openapi.yaml#/paths/~1users/post:100000000001",
+            )),
             header,
         }),
         other => panic!("unexpected observation kind: {other}"),
