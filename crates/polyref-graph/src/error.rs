@@ -14,6 +14,13 @@ pub enum GraphStoreError {
     #[error("json: {0}")]
     Json(#[from] serde_json::Error),
 
+    /// Canonical JSON hashing failed for an audit-safe payload.
+    #[error("canonical json: {message}")]
+    Canonical {
+        /// Human-readable canonicalization failure.
+        message: String,
+    },
+
     /// The schema version stored on disk is newer than this binary
     /// supports, or older than the minimum supported version.
     #[error("schema version {found} is unsupported (this binary supports {supported})")]
