@@ -269,6 +269,44 @@ fn missing_graph_entities_are_reported_as_missing_endpoint() {
     assert_eq!(result.migration_map.get(&old), None);
 }
 
+#[test]
+fn non_old_to_new_candidates_are_rejected() {
+    let store = store_with_entities([
+        entity_row(
+            "old:py:handler:handler.py#createUser:aaaaaaaaaaaa",
+            "handler",
+        ),
+        entity_row(
+            "old:py:handler:handler.py#createUserV2:bbbbbbbbbbbb",
+            "handler",
+        ),
+        entity_row("new:py:handler:handler.py#createA:cccccccccccc", "handler"),
+        entity_row("new:py:handler:handler.py#createB:dddddddddddd", "handler"),
+    ]);
+    let old_source = entity("old:py:handler:handler.py#createUser:aaaaaaaaaaaa");
+    let old_target = entity("old:py:handler:handler.py#createUserV2:bbbbbbbbbbbb");
+    let new_source = entity("new:py:handler:handler.py#createA:cccccccccccc");
+    let new_target = entity("new:py:handler:handler.py#createB:dddddddddddd");
+
+    let result = build_migration_map(
+        &store,
+        [
+            concrete(&old_source, &old_target, "old-to-old"),
+            concrete(&new_source, &new_target, "new-to-new"),
+        ],
+    )
+    .unwrap();
+
+    assert_eq!(
+        diagnostic_kinds(&result.diagnostics),
+        [
+            MigrationMapDiagnosticKind::MissingEndpoint,
+            MigrationMapDiagnosticKind::MissingEndpoint,
+        ]
+    );
+    assert_eq!(result.migration_map.iter().count(), 0);
+}
+
 fn diagnostic_kinds(
     diagnostics: &[polyref_graph::MigrationMapDiagnostic],
 ) -> Vec<MigrationMapDiagnosticKind> {
@@ -405,18 +443,15 @@ fn fixture_entity_row(entity: &FixtureEntity) -> Entity {
 }
 
 fn entity_row(id: &str, kind: &str) -> Entity {
+    let entity_id = entity(id);
     Entity {
-        entity_id: entity(id),
+        entity_id: entity_id.clone(),
         artifact_id: ArtifactId::parse("artifact:old:test:111111111111").unwrap(),
-        repo_side: if id.starts_with("old:") {
-            RepoSide::Old
-        } else {
-            RepoSide::New
-        },
-        language: Language::parse(id.split(':').nth(1).unwrap()).unwrap(),
+        repo_side: repo_side(entity_id.repo_side()),
+        language: Language::parse(entity_id.language()).unwrap(),
         kind: kind.to_owned(),
-        local_path: id.split(':').nth(3).unwrap().to_owned(),
-        stable_hash: id.rsplit(':').next().unwrap().to_owned(),
+        local_path: entity_id.local_path().to_owned(),
+        stable_hash: entity_id.stable_hash().to_owned(),
     }
 }
 

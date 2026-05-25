@@ -21,6 +21,13 @@ pub enum GraphStoreError {
         message: String,
     },
 
+    /// A graph-layer validation invariant failed.
+    #[error("graph validation: {message}")]
+    Validation {
+        /// Human-readable validation failure.
+        message: String,
+    },
+
     /// The schema version stored on disk is newer than this binary
     /// supports, or older than the minimum supported version.
     #[error("schema version {found} is unsupported (this binary supports {supported})")]

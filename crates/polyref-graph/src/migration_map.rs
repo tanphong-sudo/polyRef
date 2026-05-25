@@ -83,7 +83,8 @@ pub struct MigrationMapBuildAudit {
     pub rewrite_count: usize,
     /// Number of diagnostics emitted.
     pub diagnostic_count: usize,
-    /// Canonical hash of sanitized candidate ids and confidence classes.
+    /// Canonical hash of sanitized candidate ids, confidence classes, and
+    /// optional provenance payload hashes.
     pub candidate_payload_hash: BlobKey,
     /// Canonical hash of accepted rewrite ids.
     pub rewrite_payload_hash: BlobKey,
@@ -176,7 +177,7 @@ where
     }
 
     let migration_map = MigrationMap::try_new(rewrites, Vec::new(), conflicts).map_err(|err| {
-        GraphStoreError::Canonical {
+        GraphStoreError::Validation {
             message: format!("unexpected migration-map invariant failure: {err}"),
         }
     })?;
@@ -247,6 +248,15 @@ fn accept_single_target(
         });
         return;
     };
+    if old_entity.repo_side != crate::RepoSide::Old || new_entity.repo_side != crate::RepoSide::New
+    {
+        diagnostics.push(MigrationMapDiagnostic {
+            kind: MigrationMapDiagnosticKind::MissingEndpoint,
+            old,
+            targets: vec![target],
+        });
+        return;
+    }
     if old_entity.kind != new_entity.kind {
         diagnostics.push(MigrationMapDiagnostic {
             kind: MigrationMapDiagnosticKind::KindMismatch,
