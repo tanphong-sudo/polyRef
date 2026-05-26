@@ -34,6 +34,7 @@ pub mod builder;
 pub mod error;
 pub mod migration_map;
 pub mod model;
+pub mod observation_registry;
 pub mod read_model;
 pub mod report_store;
 pub mod store;
@@ -53,6 +54,10 @@ pub use migration_map::{
     MigrationMapBuildResult, MigrationMapDiagnostic, MigrationMapDiagnosticKind, RewriteConfidence,
 };
 pub use model::{Artifact, BuildEdge, Correspondence, Entity, RepoSide};
+pub use observation_registry::{
+    register_observations, ObservationRegistrationSpec, ObservationRegistryDiagnostic,
+    ObservationRegistryDiagnosticKind, ObservationRegistryResult, ObservationSpecKind,
+};
 pub use read_model::{GraphReadModel, ObservationRecord};
 pub use report_store::{ReportStore, ReportStoreError, RunManifest, RunReportStore};
 pub use store::{GraphStore, SqliteGraphStore};
