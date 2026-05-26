@@ -16,6 +16,13 @@ use polyref_core::{
 use polyref_graph::{BuildEdge, Correspondence, GraphReadModel, GraphStoreError};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
+pub mod coverage_risk;
+
+pub use coverage_risk::{
+    classify_coverage_risk, CoverageRisk, CoverageRiskInput, CoverageRiskReport,
+    CoverageRiskSource, UnsupportedFeatureRiskNote,
+};
+
 /// Convenience result type for frontier computation.
 pub type Result<T> = std::result::Result<T, GraphStoreError>;
 
