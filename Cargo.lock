@@ -331,6 +331,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "polyref-frontier"
+version = "0.1.0"
+dependencies = [
+ "polyref-core",
+ "polyref-graph",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "polyref-graph"
 version = "0.1.0"
 dependencies = [
