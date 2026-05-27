@@ -90,12 +90,19 @@ Layer 4 intentionally covers the first OpenAPI + TypeScript route slice only. Py
 
 | File | Purpose |
 | --- | --- |
-| `crates/polyref-graph/src/migration_map.rs` | Build + check μ; conflict detection |
-| `crates/polyref-graph/src/observation_registry.rs` | Auto-discovery; visible / held-out separation |
-| `crates/polyref-frontier/src/closure.rs` | Definition 7 least-closure |
-| `crates/polyref-frontier/src/coverage_risk.rs` | Coverage flagging |
+| `crates/polyref-graph/src/read_model.rs` | Typed read-only graph view for Layer 5 algorithms |
+| `crates/polyref-graph/src/migration_map.rs` | Build + validate migration map `μ`; conflict / ambiguity diagnostics |
+| `crates/polyref-graph/src/observation_registry.rs` | Declarative observation registration; visible / held-out support sets |
+| `crates/polyref-frontier/src/lib.rs` | Definition 7 deterministic least affected-frontier closure |
+| `crates/polyref-frontier/src/coverage_risk.rs` | Fail-closed coverage-risk classification for later A2 |
+| `crates/polyref-frontier/tests/layer5_integration.rs` | Full Layer 5 acceptance gate over the §2 fixture |
 
-Acceptance: §2 fixture produces a frontier of 7 correspondences + 3 build edges; property test for closure-under-reachability.
+Acceptance: §2 fixture produces a frontier of 7 correspondences + 3 build edges;
+Layer 5 integration proves migration-map construction, observation registration,
+frontier closure, and coverage-risk classification compose without assigning
+Layer 6 final statuses. Property-style tests cover deterministic replay,
+frontier idempotence, closure-under-reachability, missing-support blocking, and
+type-respecting migration-map rewrites.
 
 ## Layer 6 — Engine
 
