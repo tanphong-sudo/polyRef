@@ -11,7 +11,7 @@ Defines what "done" means at each layer of `build-plan.md`.
 | 2 | Sandbox isolation | Negative tests: candidate that tries `curl example.com`, `cat /etc/passwd`, `mkdir /` | All denied with typed replay/sandbox errors; events `sandbox_denied` logged |
 | 3 | Plugin host correctness | Dummy echo, dummy crash, dummy infinite-loop plugins | Each maps to the correct `UnknownReason`; replay deterministic |
 | 4 | First extractor + route checker | §2 fixture | Side-local route correspondences emerge; checker returns `Migrated` through the migration map |
-| 5 | Frontier closure | Hand-built fixtures + property test | `∂ρ(o)` matches expected sets; closure invariant holds |
+| 5 | Migration map + observation registry + frontier closure + coverage risk | Canonical Layer 5 fixture, component tests, and integration gate | `∂ρ(o)` matches 7 correspondence ids + 3 build-edge ids; clean fixture has no coverage risk; fail-closed gaps stay blocked |
 | 6 | Engine + A2 ordering | Locked test on A2 step order | Reordering any step makes the test fail |
 | 7 | Rewriters + report | Snapshot test on §2 report | Bytes match; invariant abort fires when forced |
 | 8 | CLI | End-to-end shell tests | Exit codes 0 (accepted), 1 (broken), 2 (unknown), 3 (internal) |
@@ -25,29 +25,35 @@ Defines what "done" means at each layer of `build-plan.md`.
 ### Unit (per crate)
 
 - `polyref-core` — id parsing, canonical JSON, status arithmetic.
-- `polyref-graph` — SQLite migrations idempotent; cache key collisions absent on the §2 fixture.
-- `polyref-frontier` — closure under reachability; observation-support intersection.
+- `polyref-graph` — SQLite migrations idempotent; read model ordering; migration-map diagnostics; observation support registration.
+- `polyref-frontier` — affected-frontier closure, coverage-risk classification, and Layer 5 fixture integration.
 - `polyref-engine` — A2 step ordering; aggregation rules.
 - `polyref-rewriter` — each kind covers all positions in its kind's typed fields.
 
-### Property (proptest)
+### Layer 5 invariant tests
 
-> The CI runner surfaces a property-based-test warning to the user.
+Layer 5 uses deterministic bounded property-style tests rather than unbounded
+random generators so Rust 1.79 CI remains stable.
 
-- `prop_no_missing_endpoint_accepted` — for any random `(G, ρ, o)`, no item with `MissingEndpoint` is `Pres` or `Migrated`.
-- `prop_status_idempotent` — re-running A2 on already-validated items yields the same status.
-- `prop_frontier_closed_under_reachability` — every successor of a frontier item that lies on a path to `supp(o)` is also in the frontier.
-- `prop_migration_map_type_respecting` — only kind-matching maps survive `MigrationMap::try_new`.
-- `prop_replay_byte_identical` — any run replayed from cache produces the same report bytes.
+- `crates/polyref-graph/tests/layer5_fixture.rs` — canonical fixture id/ref/order contract.
+- `crates/polyref-graph/tests/read_model.rs` — read-only graph ordering and typed support loading.
+- `crates/polyref-graph/tests/migration_map.rs` — type-respecting `μ`, conflict / ambiguous / missing diagnostics, audit-safe hashes.
+- `crates/polyref-graph/tests/observation_registry.rs` — visible and held-out observations, support dedupe, missing support, unsupported evidence.
+- `crates/polyref-frontier/tests/closure.rs` — Definition 7 closure rules, missing support diagnostics, idempotence.
+- `crates/polyref-frontier/tests/coverage_risk.rs` — fail-closed `UnknownReason` risk mapping without final status assignment.
+- `crates/polyref-frontier/tests/layer5_integration.rs` — full fixture graph → `μ` → observation registry → frontier → coverage-risk gate.
+
+Layer 6+ keeps the status-level properties: no missing endpoint may become
+`Pres` or `Migrated`, A2 is idempotent, and replayed reports are byte-identical.
 
 ### Integration
 
-- `§2-fixture` — golden test of the route extraction example.
-- `seeded-route-client-drift` — stale generated client → `Broken(GeneratedClientStale)`.
-- `seeded-workflow-old-target` — workflow packages old target → `Broken(WorkflowPackagesOldTarget)`.
-- `unknown-dynamic-route` — route built by string concatenation → `Unknown(DynamicString)`.
-- `unknown-cyclic-generator` — OpenAPI ↔ client cycle → `Unknown(CyclicGenerator)`.
-- `migration-map-conflict` — IDE rename + LLM patch disagree → `Broken(MigrationMapConflict)`.
+- `§2-layer5-fixture` — golden Layer 5 gate: 7 correspondence ids + 3 build-edge ids and no clean-fixture coverage risk.
+- `seeded-route-client-drift` — stale generated client → `Broken(GeneratedClientStale)` in Layer 6+.
+- `seeded-workflow-old-target` — workflow packages old target → `Broken(WorkflowPackagesOldTarget)` in Layer 6+.
+- `unknown-dynamic-route` — route built by string concatenation → `Unknown(DynamicString)` in Layer 6+.
+- `unknown-cyclic-generator` — OpenAPI ↔ client cycle → `Unknown(CyclicGenerator)` in Layer 6+.
+- `migration-map-conflict` — concrete rewrite disagreement becomes Broken evidence in Layer 6+.
 
 ### End-to-end
 
