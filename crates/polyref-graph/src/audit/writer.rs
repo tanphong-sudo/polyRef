@@ -79,8 +79,9 @@ impl AuditWriter {
             !line.contains('\n'),
             "serde_json::to_string produced a multiline payload: {line}"
         );
-        self.inner.write_all(line.as_bytes())?;
-        self.inner.write_all(b"\n")?;
+        let mut buf = line.into_bytes();
+        buf.push(b'\n');
+        self.inner.write_all(&buf)?;
         self.inner.flush()?;
         Ok(())
     }

@@ -16,11 +16,11 @@ pub const AUDIT_LINE_MAX_BYTES: usize = 1024 * 1024;
 
 /// Streaming NDJSON reader for [`AuditEvent`]s.
 ///
-/// Lines are read with `BufReader::read_line` and parsed one at a
-/// time, which keeps memory bounded regardless of file size. Each line
-/// is also validated through [`AuditEvent::validate`] so a corrupted
-/// or out-of-bounds field is rejected at read time, not silently
-/// trusted.
+/// Lines are read incrementally via `BufRead::fill_buf` with an
+/// explicit per-line byte cap ([`AUDIT_LINE_MAX_BYTES`]), which keeps
+/// memory bounded regardless of file size. Each line is also validated
+/// through [`AuditEvent::validate`] so a corrupted or out-of-bounds
+/// field is rejected at read time, not silently trusted.
 pub struct AuditReader<R: BufRead> {
     inner: R,
     line_no: usize,
