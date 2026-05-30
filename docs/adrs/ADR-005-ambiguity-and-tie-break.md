@@ -63,14 +63,39 @@ Consequence: graph size stays linear in entity count; no factorial blowup.
 
 ### 3. Tie-break: Broken vs Unknown on the same item
 
-Algorithm A2 already orders: unsupported/timeout/missing → Unknown **before** running the predicate. So the only tie-break case is when **multiple checkers** vote on the same frontier item (e.g. a route correspondence checked by both the route checker and a focused API-diff helper).
+Per-item precedence is **Broken > Unknown > Migrated > Pres**. A concrete refutation
+dominates missing evidence: even if one required checker on an item lacks evidence
+(→ would be Unknown), a refutation from a *different* required checker on the same item
+makes the item Broken.
 
-Rule:
-- If **any** required checker returns Broken with concrete evidence → status is Broken (BrokenReason from that checker).
-- Else if **any** required checker returns Unknown → status is Unknown (UnknownReason from the highest-priority checker; priority = order in `requiredEvidence`).
+Rule (evaluated per frontier item, over all required checkers that voted on it):
+- If **any** required checker returns Broken → status is Broken.
+- Else if **any** required checker returns Unknown → status is Unknown.
 - Else → Pres or Migrated per Algorithm A2.
 
-Rationale: a concrete refutation is more informative than missing evidence and must dominate. This matches the paper's "Broken records a failed kind-specific predicate; Unknown records missing extractor coverage, local-checker support, or build information."
+**Deterministic evidence selection (replay safety).** When more than one checker returns
+the dominating status, the report records exactly one reason + evidence pointer, chosen
+deterministically so two runs of the same input are byte-identical (architecture
+replayability gate). The headline reason is the one whose **canonical snake-case tag is
+lexicographically smallest**; ties within the same reason are broken by ascending
+`(checker_id, rule_version)`. (The canonical tag is the `snake_case` serde
+representation backed by `schemas/{broken,unknown}-reason.json`, so the order is stable
+and independent of Rust enum declaration order.)
+
+- Multiple Broken: smallest `BrokenReason` tag wins (e.g. `build_target_unreachable`
+  before `schema_incompatible`).
+- Multiple Unknown: smallest `UnknownReason` tag wins (e.g. `ambiguous_endpoint`
+  before `missing_endpoint`).
+
+The non-selected checker verdicts are still written to the evidence bundle (all raw-log
+pointers retained); only the *headline* reason on the item is the deterministically
+chosen one.
+
+Rationale: a concrete refutation is more informative than missing evidence and must
+dominate. This matches the paper's "Broken records a failed kind-specific predicate;
+Unknown records missing extractor coverage, local-checker support, or build
+information." Fixing the headline reason deterministically keeps reports comparable and
+replay byte-identical even when several checkers fail on one item.
 
 ### 4. Final candidate decision granularity
 

@@ -12,7 +12,7 @@ Defines what "done" means at each layer of `build-plan.md`.
 | 3 | Plugin host correctness | Dummy echo, dummy crash, dummy infinite-loop plugins | Each maps to the correct `UnknownReason`; replay deterministic |
 | 4 | First extractor + route checker | §2 fixture | Side-local route correspondences emerge; checker returns `Migrated` through the migration map |
 | 5 | Migration map + observation registry + frontier closure + coverage risk | Canonical Layer 5 fixture, component tests, and integration gate | `∂ρ(o)` matches 7 correspondence ids + 3 build-edge ids; clean fixture has no coverage risk; fail-closed gaps stay blocked |
-| 6 | Engine + A2 ordering | Locked test on A2 step order | Reordering any step makes the test fail |
+| 6 | Engine + A2 ordering | Locked test on A2 step order | Reordering any step makes the test fail; acceptance quantifies over `required(o)` and Broken dominates Unknown per item |
 | 7 | Rewriters + report | Snapshot test on §2 report | Bytes match; invariant abort fires when forced |
 | 8 | CLI | End-to-end shell tests | Exit codes 0 (accepted), 1 (broken), 2 (unknown), 3 (internal) |
 | 9 | Remaining checkers | Per-checker 4-status fixtures | Each fixture exercises Pres / Migrated / Broken / Unknown |
@@ -39,7 +39,7 @@ random generators so Rust 1.79 CI remains stable.
 - `crates/polyref-graph/tests/read_model.rs` — read-only graph ordering and typed support loading.
 - `crates/polyref-graph/tests/migration_map.rs` — type-respecting `μ`, conflict / ambiguous / missing diagnostics, audit-safe hashes.
 - `crates/polyref-graph/tests/observation_registry.rs` — visible and held-out observations, support dedupe, missing support, unsupported evidence.
-- `crates/polyref-frontier/tests/closure.rs` — Definition 7 closure rules, missing support diagnostics, idempotence.
+- `crates/polyref-frontier/tests/closure.rs` — Definition 7 closure rules, o-relative restriction to `supp(o)` reachability (including intermediate build/codegen edges on paths to `supp(o)`), missing support diagnostics, idempotence.
 - `crates/polyref-frontier/tests/coverage_risk.rs` — fail-closed `UnknownReason` risk mapping without final status assignment.
 - `crates/polyref-frontier/tests/layer5_integration.rs` — full fixture graph → `μ` → observation registry → frontier → coverage-risk gate.
 

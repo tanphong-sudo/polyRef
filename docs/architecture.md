@@ -39,23 +39,77 @@ Aggregate invariants:
 - `Evidence.outcome` is the single source of truth for status. `Pres` and `Migrated` carry no reason at the type level.
 - `MigrationMap.tryNew` accepts a rewrite iff the *kind* segment of the EntityIds matches (paper Definition 5). Cross-language migrations are first-class.
 
+## Affected frontier and `required(o)`
+
+The affected frontier `∂ρ(o)` (paper Definition 7) is **o-relative**: it contains only
+the correspondences and build edges that lie on a path from a touched entity
+(`touch_ρ = {n : owner(n) ∈ Δ} ∪ dom(μ) ∪ rng(μ)`) and that can reach an element of
+`supp(o)`. An item incident to an edit but unable to reach `o` is **not** in `∂ρ(o)` and
+does not affect `o`'s judgment.
+
+Acceptance for `o` quantifies over `required(o)`, not over a bare `supp(o)` slice:
+
+```
+required(o) = (supp(o) ∩ ∂ρ(o))
+            ∪ closure_edges_on_paths(edit → supp(o))
+```
+
+where `closure_edges_on_paths` are the correspondence / build edges traversed while
+reaching a `supp(o)` element from a touched entity — in particular the intermediate
+generated/codegen build edges that are usually **not** themselves in `supp(o)` but that
+the build-closure lemma places in the frontier and inducts along. Dropping them would
+let an unvalidated intermediate generator step slip past acceptance, so they are
+required.
+
+`o` is `Accepted` iff every `x ∈ required(o)` is `Pres` or `Migrated` and the required
+local / build / observation obligations for `o` validate. Any `Broken` or `Unknown` in
+`required(o)` makes `o` non-accepted (observation-level `Broken` if any required `x` is
+`Broken`, else `Unknown` — same precedence as the per-item rule below). This is the set
+the preservation theorem quantifies over (Definition 9), and the frontier closure emits
+`required(o)` explicitly so the report can list it for audit.
+
+> Held-out / evaluation-only observations: `required(o)` is computed the same way, but
+> its membership is redacted from any report surface produced before the candidate
+> decision, so support structure is not leaked ahead of the decision (ADR-010,
+> fail-closed).
+
 ## Algorithm A2 (status assignment)
 
-The order is load-bearing; every implementation must preserve it (test-locked in `polyref-engine`).
+The order is load-bearing; every implementation must preserve it (test-locked in `polyref-engine`). Per-item precedence is **Broken > Unknown > Migrated > Pres**: a concrete refutation is stronger evidence than absence of evidence, so a known failure must surface as `Broken` rather than being hidden behind `Unknown`.
 
 ```
 for each frontier item x:
-    1. if checker is unsupported or timed out, or required source evidence is missing
-       → Unknown(reason)
-    2. else if a required compat / migrate / local / build predicate is concretely refuted
+    1. if any required compat / migrate / local / build predicate is concretely refuted
        → Broken(reason)
-    3. else if endpoints of x are rewritten by μ AND the migrate predicate holds AND μ(o) is defined
+    2. else if a required checker is unsupported or timed out, or required source
+       evidence is missing / ambiguous
+       → Unknown(reason)
+    3. else if endpoints of x are rewritten (entities by μ, build-edge artifacts by
+       lift_μ) AND the migrate predicate holds AND μ(o) is defined
        → Migrated
-    4. else if endpoints unchanged AND well-typed in R' AND compat predicate holds
+    4. else if endpoints are unchanged (lift_μ is identity on a build edge) AND
+       well-typed in R' AND compat predicate holds
        → Pres
     5. else
        → Unknown(NoAcceptingRuleApplied)
 ```
+
+> Note: this orders `Broken` before `Unknown` at the item level. The paper's A2
+> pseudocode currently tests `Unknown` first; that is a manuscript fix in flight, and the
+> implementation follows the precedence above (consistent with §4.2 prose, the Table 3
+> caption, and the Definition 9 note). When multiple required checkers vote on the same
+> item, tie-breaking is deterministic per ADR-005 §3.
+
+### Build-edge `Pres` vs `Migrated`
+
+`μ` is defined on entities (Definition 5), but a build edge is `artifact → artifact`. The
+artifact-level rewrite is the **lift of μ through `owner`** (`lift_μ`): an endpoint
+artifact is *rewritten* only when an entity it owns is in `dom(μ)` and μ moves/renames it
+to a different artifact or path, or when it is a generated target whose source-spec entity
+is in `dom(μ)`. A build edge is `Migrated` only when at least one endpoint is rewritten
+this way (and `migrate_build` holds); editing an artifact's content **without** changing
+its path leaves the edge's identity intact and keeps it `Pres` (re-check `compat_build`
+only). See ADR-004.
 
 ## Plugin SPI
 

@@ -9,8 +9,8 @@ PolyRef validates whether a candidate multilingual refactoring preserves the obs
 - Loads an old repository `R` and applies a candidate `ρ = (Δ, μ)` inside a sandbox to obtain `R' = apply(R, ρ)`.
 - Extracts entities and local facts from artifacts in nine families (see [Artifact families](#artifact-families)).
 - Builds a typed correspondence graph `(A, N, L, C, Build, O, owner, type)` per paper Definition 1.
-- Computes the affected frontier `∂ρ(o)` for each observation as the least closure of paper Definition 7.
-- Runs versioned kind checkers and assigns each frontier item one of `Pres / Migrated / Broken / Unknown` per Algorithm A2.
+- Computes the affected frontier `∂ρ(o)` for each observation as the least closure of paper Definition 7, restricted to items that can reach `supp(o)` (the o-relative frontier).
+- Runs versioned kind checkers and assigns each frontier item one of `Pres / Migrated / Broken / Unknown` per Algorithm A2; a candidate is `Accepted` for `o` only when every item in `required(o)` (the o-relative frontier plus the intermediate build/codegen edges on paths to `supp(o)`) is `Pres` or `Migrated`.
 - Emits an auditable JSON + Markdown report. An `Accepted` candidate decision is impossible while `missing_endpoint_unknown == true` (fail-closed).
 
 ## What PolyRef is not
