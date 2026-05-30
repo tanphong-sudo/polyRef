@@ -159,6 +159,61 @@ fn missing_support_becomes_precheck_unknown_not_dropped() {
     );
 }
 
+#[test]
+fn fixture_edited_artifact_endpoint_gets_local_obligation() {
+    let fixture = load_fixture();
+    let store = seeded_store(&fixture);
+    let input = fixture_frontier_input(&fixture);
+    let frontier = compute_frontier(&store, &input).unwrap();
+
+    let set = generate_obligations(&store, &input, &frontier).unwrap();
+
+    // The route correspondence has the `createUser` handler endpoint, owned by the
+    // edited artifact handler.py ⇒ it must get a Local obligation.
+    let route_item = FrontierItem::Correspondence(corr("corr:route:0000000000000001"));
+    assert!(
+        set.obligations
+            .iter()
+            .any(|o| o.item == route_item && o.kind == ObligationKind::Local),
+        "a correspondence with an endpoint owned by an edited artifact must get a Local obligation"
+    );
+
+    // The event correspondence's only endpoint also lives in handler.py (edited) ⇒ Local.
+    let event_item = FrontierItem::Correspondence(corr("corr:event:0000000000000006"));
+    assert!(
+        set.obligations
+            .iter()
+            .any(|o| o.item == event_item && o.kind == ObligationKind::Local),
+        "the event correspondence in the edited handler.py must get a Local obligation"
+    );
+
+    // A build edge is artifact→artifact with no endpoint entities ⇒ never Local.
+    assert!(
+        !set.obligations.iter().any(
+            |o| matches!(o.item, FrontierItem::BuildEdge(_)) && o.kind == ObligationKind::Local
+        ),
+        "build edges have no endpoint entities and must not get a Local obligation"
+    );
+}
+
+#[test]
+fn no_edits_means_no_local_obligation() {
+    let fixture = load_fixture();
+    let store = seeded_store(&fixture);
+    let mut input = fixture_frontier_input(&fixture);
+    // Drop the edits: with Δ empty, no endpoint is owned by an edited artifact.
+    input.edited_artifacts = BTreeSet::new();
+    let frontier = compute_frontier(&store, &input).unwrap();
+
+    let set = generate_obligations(&store, &input, &frontier).unwrap();
+    assert!(
+        !set.obligations
+            .iter()
+            .any(|o| o.kind == ObligationKind::Local),
+        "with no edited artifacts there can be no Local obligation"
+    );
+}
+
 // ---- fixture plumbing (mirrors crates/polyref-frontier/tests/closure.rs) ----
 
 #[derive(Debug, Deserialize)]
