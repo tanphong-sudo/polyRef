@@ -5,6 +5,7 @@ members = [
     "crates/polyref-checker-spi",
     "crates/polyref-graph",
     "crates/polyref-frontier",
+    "crates/polyref-engine",
     "crates/polyref-loader",
     "plugins/extractor-openapi",
     "plugins/extractor-typescript",

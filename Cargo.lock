@@ -302,6 +302,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "polyref-engine"
+version = "0.1.0"
+dependencies = [
+ "polyref-core",
+ "polyref-frontier",
+ "polyref-graph",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "polyref-extractor-openapi"
 version = "0.1.0"
 dependencies = [
