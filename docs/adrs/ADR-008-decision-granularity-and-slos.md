@@ -7,6 +7,7 @@ gpt.md missing decision (6): per-observation vs per-repository vs both. Also no 
 
 ### Granularity
 - The atomic decision is **per observation**: `accepted | broken | unknown`.
+- Per observation, acceptance quantifies over `required(o)` — the o-relative frontier plus the intermediate build/codegen edges on paths to `supp(o)` (see architecture.md, "Affected frontier and required(o)"), not over a bare `supp(o)` slice. `o` is `Accepted` iff every item in `required(o)` is `Pres`/`Migrated` and its required local/build/observation obligations validate.
 - The **candidate decision** is the meet over the candidate's selected observations:
   - `Accepted` iff every selected observation is `Accepted`.
   - `Broken` iff any selected observation is `Broken`.

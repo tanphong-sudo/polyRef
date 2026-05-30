@@ -29,6 +29,31 @@ If only one of source map / re-execution / checksum is present → `Unknown(reas
 If none are present → `Unknown(reason=GeneratedEvidenceMissing)`.
 If re-execution fails or differs from the committed file → `Broken(reason=GeneratorMismatch)`.
 
+### Pres vs Migrated for a build edge
+The generated-file policy above decides when an edge is eligible for `Pres`/`Migrated`
+versus `Unknown`/`Broken`. Which of `Pres` or `Migrated` it gets depends on whether the
+edge's **identity** changed, not on whether the artifact's bytes changed.
+
+`μ` is defined on entities (Definition 5); a build edge is `artifact → artifact`. Lift μ
+to artifacts through `owner` (`lift_μ`): an endpoint artifact `a` is *rewritten*
+(`lift_μ(a) = a' ≠ a`) only when
+- some entity `n` with `owner(n) = a` is in `dom(μ)` and `μ(n)` is owned by a different
+  artifact / resolves to a different path (the owning artifact moves or is renamed), or
+- `a` is a generated artifact whose source-spec entity is in `dom(μ)` (the generator
+  input migrated, so the output path is rewritten accordingly).
+
+Otherwise `lift_μ(a) = a` (identity). Then:
+- **Migrated** — at least one endpoint is rewritten by `lift_μ`, the lifted edge is
+  well-defined, and `migrate_build` holds for it.
+- **Pres** — neither endpoint is rewritten (`lift_μ` is identity on both) and
+  `compat_build` holds in `R'`.
+
+Editing an artifact's **content** while keeping its path is **not** a rewrite: the build
+edge keeps its endpoint identities, so it stays `Pres` (re-check `compat_build`) rather
+than `Migrated`. Only a path/identity change via `lift_μ` produces `Migrated`. This keeps
+the distinction aligned with Definition 8 ("`Pres` means … without changing endpoint
+identities").
+
 ### Cyclic generators
 If the generator graph has a cycle (e.g. OpenAPI → client → OpenAPI), the build edge's `Pres/Migrated` status is forfeit; status is `Unknown(reason=CyclicGenerator)`. Bounded fragment excludes cyclic generators per paper.
 
