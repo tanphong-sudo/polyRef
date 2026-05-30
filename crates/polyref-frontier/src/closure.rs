@@ -366,6 +366,14 @@ fn seed_build_closure(
     support_items: &BTreeSet<FrontierItem>,
     reasons: &mut BTreeMap<FrontierItem, BTreeSet<FrontierReason>>,
 ) {
+    // required(o): a build edge is required when it is forward-reachable from an edited
+    // artifact AND lies on a path to a supp(o) element. The intermediate codegen edges
+    // that reach a supp(o) element are required even when they are not themselves in
+    // supp(o) (paper Definition 7 clause 2 + the build-closure lemma, which inducts
+    // along those edges). `reaches_supp` is the set of artifacts from which a supp(o)
+    // anchor is reachable through build edges.
+    let reaches_supp = artifacts_reaching_support(indexes, support_items);
+
     let mut reached_artifacts = BTreeSet::<ArtifactId>::new();
     let mut worklist = VecDeque::<ArtifactId>::new();
     for artifact in &input.edited_artifacts {
@@ -388,7 +396,9 @@ fn seed_build_closure(
                 FrontierReason::GeneratedArtifactBuild
             };
             let item = FrontierItem::BuildEdge(edge_id.clone());
-            if support_items.contains(&item) {
+            // In required(o) iff it is a supp(o) build edge directly, or it is an
+            // intermediate edge whose destination can still reach a supp(o) element.
+            if support_items.contains(&item) || reaches_supp.contains(&edge.dst_artifact) {
                 insert_reason(reasons, item, reason);
             }
             if reached_artifacts.insert(edge.dst_artifact.clone()) {
@@ -396,6 +406,57 @@ fn seed_build_closure(
             }
         }
     }
+}
+
+/// Artifacts from which a supp(o) element is reachable through build edges
+/// (reflexive). An *anchor* is the source artifact of a supp(o) build edge or the
+/// owner artifact of a supp(o) correspondence endpoint; any artifact that can reach
+/// an anchor by following `build_out` is included. Used to keep the build closure
+/// `o`-relative: only intermediate edges on a path to supp(o) enter `required(o)`.
+fn artifacts_reaching_support(
+    indexes: &GraphIndexes,
+    support_items: &BTreeSet<FrontierItem>,
+) -> BTreeSet<ArtifactId> {
+    let mut reaches = BTreeSet::<ArtifactId>::new();
+    let mut worklist = VecDeque::<ArtifactId>::new();
+    for item in support_items {
+        match item {
+            FrontierItem::BuildEdge(edge_id) => {
+                if let Some(edge) = indexes.build_edges.get(edge_id) {
+                    if reaches.insert(edge.src_artifact.clone()) {
+                        worklist.push_back(edge.src_artifact.clone());
+                    }
+                }
+            }
+            FrontierItem::Correspondence(corr_id) => {
+                if let Some(endpoints) = indexes.corr_endpoints.get(corr_id) {
+                    for endpoint in endpoints {
+                        if let Some(artifact) = indexes.entity_artifact.get(endpoint) {
+                            if reaches.insert(artifact.clone()) {
+                                worklist.push_back(artifact.clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Reverse BFS over `build_in`: a predecessor artifact reaches an anchor if it has
+    // a build edge into an artifact already known to reach an anchor.
+    while let Some(artifact) = worklist.pop_front() {
+        let Some(in_edges) = indexes.build_in.get(&artifact) else {
+            continue;
+        };
+        for edge_id in in_edges {
+            if let Some(edge) = indexes.build_edges.get(edge_id) {
+                if reaches.insert(edge.src_artifact.clone()) {
+                    worklist.push_back(edge.src_artifact.clone());
+                }
+            }
+        }
+    }
+    reaches
 }
 
 #[derive(Debug, Default)]

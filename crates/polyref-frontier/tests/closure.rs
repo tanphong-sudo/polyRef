@@ -228,6 +228,58 @@ fn missing_support_emits_diagnostic_and_is_not_accepted() {
 }
 
 #[test]
+fn intermediate_codegen_edge_outside_supp_enters_required_frontier() {
+    // required(o): an intermediate build/codegen edge that lies on a path from an
+    // edited artifact to a supp(o) element must be in the frontier even when the
+    // intermediate edge is NOT itself in supp(o). Build chain:
+    //   spec.yaml (edited) --edge_ab--> client.ts --edge_bc--> bundle.js
+    // supp(o) = { edge_bc } only. edge_ab is the intermediate codegen step.
+    let store = SqliteGraphStore::open_in_memory().unwrap();
+    store.migrate().unwrap();
+    let spec = artifact("artifact:old:spec.yaml:aaaaaaaaaaaa");
+    let client = artifact("artifact:old:client.ts:bbbbbbbbbbbb");
+    let bundle = artifact("artifact:old:bundle.js:cccccccccccc");
+    for id in [&spec, &client, &bundle] {
+        store.save_artifact(&artifact_row_for_id(id)).unwrap();
+    }
+    let edge_ab = edge("edge:build_codegen:00000000000000a1");
+    let edge_bc = edge("edge:build_codegen:00000000000000b2");
+    store
+        .save_build_edge(&BuildEdge {
+            edge_id: edge_ab.clone(),
+            src_artifact: spec.clone(),
+            dst_artifact: client.clone(),
+        })
+        .unwrap();
+    store
+        .save_build_edge(&BuildEdge {
+            edge_id: edge_bc.clone(),
+            src_artifact: client,
+            dst_artifact: bundle,
+        })
+        .unwrap();
+
+    let input = FrontierInput {
+        edited_artifacts: BTreeSet::from([spec]),
+        migration_map: MigrationMap::try_new(BTreeMap::new(), Vec::new(), Vec::new()).unwrap(),
+        observation_id: "obs:test".to_owned(),
+        support: vec![SupportRef::Edge(edge_bc.clone())],
+    };
+
+    let result = compute_frontier(&store, &input).unwrap();
+    let edges = edge_items(&result.entries);
+
+    assert!(
+        edges.contains(&edge_ab.as_str().to_owned()),
+        "intermediate codegen edge on the path to supp(o) must be in required(o); got {edges:?}"
+    );
+    assert!(
+        edges.contains(&edge_bc.as_str().to_owned()),
+        "the supp(o) build edge itself must be in required(o); got {edges:?}"
+    );
+}
+
+#[test]
 fn closure_is_idempotent_for_same_graph_and_input() {
     let graph = SmallGraph::new();
     let input = FrontierInput {
