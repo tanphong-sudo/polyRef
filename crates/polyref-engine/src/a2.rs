@@ -107,10 +107,10 @@ pub fn validate_frontier(input: &ValidateFrontierInput) -> ValidateFrontierOutpu
 /// Assign one item's outcome over its verdicts, honouring the load-bearing
 /// `Broken > Unknown > Migrated > Pres` precedence. Returns the outcome plus the
 /// headline evidence that produced it (if any).
-fn assign_item_status<'a>(
-    verdicts: &'a [Evidence],
+fn assign_item_status(
+    verdicts: &[Evidence],
     precheck_unknown: bool,
-) -> (Outcome, Option<&'a Evidence>) {
+) -> (Outcome, Option<&Evidence>) {
     // Step 1: any concrete refutation ⇒ Broken (dominates everything).
     let brokens: Vec<&Evidence> = verdicts
         .iter()
