@@ -277,3 +277,100 @@ fn output_is_byte_stable_across_verdict_insertion_order() {
 
     assert_eq!(out1, out2);
 }
+
+#[test]
+fn full_verdict_bundle_is_retained_per_item() {
+    // ADR-005 §3: every checker verdict must survive, not just the headline.
+    let item = corr_item("0000000000000001");
+    let mut verdicts: ItemVerdicts = BTreeMap::new();
+    verdicts.insert(
+        item.clone(),
+        vec![
+            broken(
+                BrokenReason::SchemaIncompatible,
+                "schema.compat-v1",
+                "checker-z",
+            ),
+            broken(
+                BrokenReason::RoutePathRefuted,
+                "route.compat-v1",
+                "checker-a",
+            ),
+        ],
+    );
+
+    let out = run(&[item.clone()], verdicts);
+    let bundle = out.evidence.get(&item).expect("evidence bundle for item");
+    assert_eq!(
+        bundle.len(),
+        2,
+        "both checker verdicts must be retained in the evidence bundle"
+    );
+    // Headline reason is still the deterministic smallest tag.
+    assert!(matches!(
+        out.statuses.get(&item),
+        Some(Outcome::Broken {
+            reason: BrokenReason::RoutePathRefuted
+        })
+    ));
+}
+
+#[test]
+fn orphan_precheck_unknown_blocks_acceptance_with_empty_frontier() {
+    // Layer 5 missing-support: a pre-check Unknown whose id has NO frontier entry.
+    // required_items is empty, all (vacuously) accepting — but the observation MUST
+    // be Unknown, never Accepted (fail-closed). This fails if orphan pre-check
+    // Unknowns are ignored.
+    let mut obligations = obligations_for(&[]);
+    obligations
+        .precheck_unknowns
+        .push(polyref_engine::obligation::PrecheckUnknown {
+            observation_id: OBS.to_owned(),
+            item: "corr:route:9999999999999999".to_owned(),
+        });
+    let input = ValidateFrontierInput {
+        observation_id: OBS.to_owned(),
+        required_items: vec![],
+        obligations,
+        verdicts: BTreeMap::new(),
+    };
+
+    let out = validate_frontier(&input);
+    assert_eq!(
+        out.decision,
+        ObservationDecision::Unknown,
+        "an observation with only unconsumed missing-support must not be Accepted"
+    );
+    assert_eq!(out.unconsumed_precheck_unknowns.len(), 1);
+}
+
+#[test]
+fn orphan_precheck_unknown_blocks_otherwise_accepting_observation() {
+    // All required items are Pres, but a missing-support id (not a frontier item)
+    // still drags the observation to Unknown.
+    let item = corr_item("0000000000000001");
+    let mut verdicts: ItemVerdicts = BTreeMap::new();
+    verdicts.insert(item.clone(), vec![pres("route.compat-v1")]);
+
+    let mut obligations = obligations_for(&[item.clone()]);
+    obligations
+        .precheck_unknowns
+        .push(polyref_engine::obligation::PrecheckUnknown {
+            observation_id: OBS.to_owned(),
+            item: "edge:build_codegen:9999999999999999".to_owned(),
+        });
+    let input = ValidateFrontierInput {
+        observation_id: OBS.to_owned(),
+        required_items: vec![item.clone()],
+        obligations,
+        verdicts,
+    };
+
+    let out = validate_frontier(&input);
+    assert!(matches!(out.statuses.get(&item), Some(Outcome::Pres)));
+    assert_eq!(
+        out.decision,
+        ObservationDecision::Unknown,
+        "an unconsumed missing-support gap must block an otherwise-accepting observation"
+    );
+}

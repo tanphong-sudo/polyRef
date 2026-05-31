@@ -62,9 +62,15 @@ pub struct ValidateFrontierOutput {
     pub observation_id: String,
     /// Per-item assigned outcome, sorted by item.
     pub statuses: BTreeMap<FrontierItem, Outcome>,
-    /// Per-item headline evidence (the verdict that produced the status), sorted
-    /// by item. Items with no verdict have no evidence entry.
-    pub evidence: BTreeMap<FrontierItem, Evidence>,
+    /// Per-item **full** verdict bundle, sorted by item. ADR-005 §3 requires every
+    /// checker verdict to be retained for replay/debugging, not just the headline
+    /// that produced the status; the chosen reason lives in [`Self::statuses`].
+    pub evidence: BTreeMap<FrontierItem, Vec<Evidence>>,
+    /// Pre-check Unknowns from Layer 5 that did **not** correspond to any required
+    /// frontier item (e.g. missing-support diagnostics whose id has no frontier
+    /// entry). These are unconsumed coverage gaps; they force the observation
+    /// non-accepting (fail-closed) and are surfaced here for the report.
+    pub unconsumed_precheck_unknowns: Vec<crate::obligation::PrecheckUnknown>,
     /// Reduced per-observation decision.
     pub decision: ObservationDecision,
 }
@@ -72,6 +78,9 @@ pub struct ValidateFrontierOutput {
 /// Run A2 over one observation's required frontier.
 #[must_use]
 pub fn validate_frontier(input: &ValidateFrontierInput) -> ValidateFrontierOutput {
+    // Map each required item to its stable id key once.
+    let required_keys: BTreeSet<String> = input.required_items.iter().map(item_key).collect();
+
     // Items carrying a Layer 5 pre-check Unknown are forced Unknown before any
     // checker verdict can produce an accepting status (fail-closed).
     let precheck_items: BTreeSet<&str> = input
@@ -82,24 +91,42 @@ pub fn validate_frontier(input: &ValidateFrontierInput) -> ValidateFrontierOutpu
         .collect();
 
     let mut statuses = BTreeMap::<FrontierItem, Outcome>::new();
-    let mut evidence = BTreeMap::<FrontierItem, Evidence>::new();
+    let mut evidence = BTreeMap::<FrontierItem, Vec<Evidence>>::new();
 
     for item in &input.required_items {
         let verdicts = input.verdicts.get(item).map_or(&[][..], Vec::as_slice);
-        let (outcome, headline) =
+        let (outcome, _headline) =
             assign_item_status(verdicts, precheck_items.contains(item_key(item).as_str()));
         statuses.insert(item.clone(), outcome);
-        if let Some(ev) = headline {
-            evidence.insert(item.clone(), ev.clone());
+        // Retain the full verdict bundle (ADR-005 §3), not only the headline.
+        if !verdicts.is_empty() {
+            evidence.insert(item.clone(), verdicts.to_vec());
         }
     }
 
-    let decision = observation_decision(&input.required_items, &statuses);
+    // A pre-check Unknown whose id is not a required frontier item is an
+    // unconsumed coverage gap: Layer 5 reported a missing/ambiguous support id
+    // that never produced a frontier entry. It must still block acceptance —
+    // otherwise an observation with only missing support could reduce to Accepted.
+    let unconsumed_precheck_unknowns: Vec<crate::obligation::PrecheckUnknown> = input
+        .obligations
+        .precheck_unknowns
+        .iter()
+        .filter(|p| !required_keys.contains(&p.item))
+        .cloned()
+        .collect();
+
+    let decision = observation_decision(
+        &input.required_items,
+        &statuses,
+        !unconsumed_precheck_unknowns.is_empty(),
+    );
 
     ValidateFrontierOutput {
         observation_id: input.observation_id.clone(),
         statuses,
         evidence,
+        unconsumed_precheck_unknowns,
         decision,
     }
 }
@@ -218,12 +245,16 @@ fn broken_tag(reason: BrokenReason) -> &'static str {
 }
 
 /// Reduce per-item outcomes to the observation decision (meet over required items).
+/// `has_unconsumed_precheck` forces a non-accepting decision when Layer 5 reported a
+/// coverage gap (missing/ambiguous support) that never became a required frontier
+/// item — without this, an observation with only such gaps could reduce to Accepted.
 fn observation_decision(
     required: &[FrontierItem],
     statuses: &BTreeMap<FrontierItem, Outcome>,
+    has_unconsumed_precheck: bool,
 ) -> ObservationDecision {
     let mut has_broken = false;
-    let mut has_non_accepting = false;
+    let mut has_non_accepting = has_unconsumed_precheck;
     for item in required {
         match statuses.get(item) {
             Some(o) if o.is_accepting() => {}
