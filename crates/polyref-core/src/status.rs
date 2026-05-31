@@ -128,3 +128,55 @@ impl Outcome {
         matches!(self, Outcome::Pres | Outcome::Migrated)
     }
 }
+
+impl UnknownReason {
+    /// Canonical snake-case tag, identical to the serde representation and
+    /// `schemas/unknown-reason.json`. Defined here so consumer crates can order
+    /// or display reasons without a wildcard `_` arm on this `#[non_exhaustive]`
+    /// enum (used by the engine's deterministic Unknown tie-break, ADR-005 §3).
+    #[must_use]
+    pub fn as_tag(self) -> &'static str {
+        match self {
+            UnknownReason::AmbiguousEndpoint => "ambiguous_endpoint",
+            UnknownReason::CheckerTimeout => "checker_timeout",
+            UnknownReason::CyclicGenerator => "cyclic_generator",
+            UnknownReason::DynamicEvidenceUnverified => "dynamic_evidence_unverified",
+            UnknownReason::DynamicString => "dynamic_string",
+            UnknownReason::GeneratedEvidenceMissing => "generated_evidence_missing",
+            UnknownReason::GeneratedEvidenceWeak => "generated_evidence_weak",
+            UnknownReason::MigrationMapAmbiguous => "migration_map_ambiguous",
+            UnknownReason::MissingEndpoint => "missing_endpoint",
+            UnknownReason::NoAcceptingRuleApplied => "no_accepting_rule_applied",
+            UnknownReason::ObservationRewriteUndefined => "observation_rewrite_undefined",
+            UnknownReason::OpaqueBuildCache => "opaque_build_cache",
+            UnknownReason::PluginFailure => "plugin_failure",
+            UnknownReason::Reflection => "reflection",
+            UnknownReason::UnsupportedExtractor => "unsupported_extractor",
+            UnknownReason::UnsupportedFramework => "unsupported_framework",
+        }
+    }
+}
+
+impl BrokenReason {
+    /// Canonical snake-case tag, identical to the serde representation and
+    /// `schemas/broken-reason.json`. Defined here so consumer crates can order
+    /// or display reasons without a wildcard `_` arm on this `#[non_exhaustive]`
+    /// enum (used by the engine's deterministic Broken tie-break, ADR-005 §3).
+    #[must_use]
+    pub fn as_tag(self) -> &'static str {
+        match self {
+            BrokenReason::BuildTargetUnreachable => "build_target_unreachable",
+            BrokenReason::EventPayloadIncompatible => "event_payload_incompatible",
+            BrokenReason::GeneratedClientStale => "generated_client_stale",
+            BrokenReason::GeneratorMismatch => "generator_mismatch",
+            BrokenReason::HandlerBindingMismatch => "handler_binding_mismatch",
+            BrokenReason::LocalCheckerFailure => "local_checker_failure",
+            BrokenReason::MigrationMapConflict => "migration_map_conflict",
+            BrokenReason::QueryTableMissing => "query_table_missing",
+            BrokenReason::RequiredFieldDrift => "required_field_drift",
+            BrokenReason::RoutePathRefuted => "route_path_refuted",
+            BrokenReason::SchemaIncompatible => "schema_incompatible",
+            BrokenReason::WorkflowPackagesOldTarget => "workflow_packages_old_target",
+        }
+    }
+}

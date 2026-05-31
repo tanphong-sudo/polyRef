@@ -20,9 +20,11 @@
 
 #![warn(missing_docs)]
 
+pub mod a2;
 pub mod error;
 pub mod obligation;
 
+pub use a2::{validate_frontier, ItemVerdicts, ValidateFrontierInput, ValidateFrontierOutput};
 pub use error::{EngineError, Result};
 pub use obligation::{
     generate_obligations, FrontierObligationSet, Obligation, ObligationKind, PrecheckUnknown,
